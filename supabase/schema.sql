@@ -373,9 +373,10 @@ set images = (
   select pg_catalog.array_agg(
     case when pg_catalog.strpos(u.image, '/storage/v1/object/public/property-images/') > 0 then
       pg_catalog.split_part(
-        pg_catalog.substring(
-          pg_catalog.substr(u.image, pg_catalog.strpos(u.image, '/storage/v1/object/public/property-images/')
-          + pg_catalog.length('/storage/v1/object/public/property-images/'))
+        pg_catalog.substr(
+          u.image,
+          pg_catalog.strpos(u.image, '/storage/v1/object/public/property-images/')
+          + pg_catalog.length('/storage/v1/object/public/property-images/')
         ), '?', 1
       )
     else u.image end
