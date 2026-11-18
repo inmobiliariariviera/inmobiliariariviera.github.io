@@ -10,6 +10,7 @@ import { LOCATION_SCOPE_LABELS, normalizeLocationScope, propertyMatchesLocationS
 import { BUSINESS_PHONE_DISPLAY, createWhatsAppUrl } from "@/lib/contact";
 import { createFacebookShareUrl, INSTAGRAM_PROFILE_URL, YOUTUBE_CHANNEL_URL } from "@/lib/social";
 import WhatsAppIcon from "@/components/real-estate/WhatsAppIcon";
+import ReviewsSection from "@/components/real-estate/ReviewsSection";
 
 export default function Home() {
   const query = new URLSearchParams(window.location.hash.split("?")[1] ?? window.location.search.slice(1));
@@ -100,6 +101,8 @@ export default function Home() {
           <div><span className="eyebrow">¿TENÉS UNA PROPIEDAD?</span><h2>Tu próximo capítulo<br />puede empezar acá.</h2></div>
           <a className="button button-light" href={createWhatsAppUrl("Hola, quiero ofrecer mi propiedad. Me gustaría conversar sobre la venta o el alquiler.")} target="_blank" rel="noopener noreferrer">Ofrecer mi propiedad por WhatsApp <ArrowRight size={17} /></a>
         </section>
+
+        <ReviewsSection />
 
         <section id="contacto" className="contact-section" aria-labelledby="contacto-heading" data-scroll-reveal>
           <div className="contact-copy"><span className="eyebrow">CONTACTO</span><h2 id="contacto-heading">Estamos para ayudarte.</h2><p>Consultanos por una propiedad o escribinos para conversar sobre la tuya.</p></div>

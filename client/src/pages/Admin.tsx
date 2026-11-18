@@ -4,7 +4,7 @@ import {
   AlertTriangle, ArrowLeft, BadgeCheck, Building2, CalendarClock, Check, CheckCircle2,
   ClipboardList, Clock3, DollarSign, FileClock, Home, LoaderCircle, LogOut, Mail,
   MapPin, Pencil, Phone, Plus, RefreshCw, Save, Search, ShieldCheck, Trash2, UploadCloud,
-  Users, X,
+  Star, Users, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import SiteHeader from "@/components/real-estate/SiteHeader";
@@ -12,7 +12,7 @@ import { formatPrice, type PropertyStatus } from "@/data/properties";
 import { isSupabaseConfigured, supabase, type PropertyRow } from "@/lib/supabase";
 
 type Role = "owner" | "admin" | "manager" | "secretary" | "user";
-type Tab = "overview" | "properties" | "leads" | "followups" | "audit" | "team";
+type Tab = "overview" | "properties" | "leads" | "reviews" | "followups" | "audit" | "team";
 type LeadRow = {
   id: string; name: string; email: string | null; phone: string | null; message: string;
   property_id: string | null; stage: string; source: string; created_at: string;
@@ -26,6 +26,7 @@ type AuditRow = {
   old_values: Record<string, unknown> | null; new_values: Record<string, unknown> | null; created_at: string;
 };
 type TeamRow = { id: string; email: string | null; full_name: string | null; role: Role; created_at: string };
+type ReviewRow = { id: string; author_name: string; rating: number; comment: string; is_approved: boolean; created_at: string };
 type PropertyDraft = {
   title: string; operation: "Venta" | "Alquiler"; category: string; location: string; region: string;
   price: string; currency: "USD" | "ARS"; price_frequency: string; surface: string; covered_surface: string; surface_unit: "ha" | "m²";
@@ -49,6 +50,7 @@ const tabs: { id: Tab; label: string; icon: typeof Home }[] = [
   { id: "overview", label: "Resumen", icon: Home },
   { id: "properties", label: "Propiedades", icon: Building2 },
   { id: "leads", label: "Consultas", icon: Users },
+  { id: "reviews", label: "Reseñas", icon: Star },
   { id: "followups", label: "Seguimientos", icon: CalendarClock },
   { id: "audit", label: "Auditoría", icon: FileClock },
   { id: "team", label: "Equipo y roles", icon: BadgeCheck },
@@ -78,6 +80,7 @@ export default function Admin() {
   const [properties, setProperties] = useState<PropertyRow[]>([]);
   const [signedImageUrls, setSignedImageUrls] = useState<Record<string, string>>({});
   const [leads, setLeads] = useState<LeadRow[]>([]);
+  const [reviews, setReviews] = useState<ReviewRow[]>([]);
   const [followUps, setFollowUps] = useState<FollowUpRow[]>([]);
   const [audit, setAudit] = useState<AuditRow[]>([]);
   const [team, setTeam] = useState<TeamRow[]>([]);
@@ -118,12 +121,13 @@ export default function Admin() {
     const client = supabase;
     if (!client) return;
     setDataLoading(true);
-    const [propertyResult, leadResult, taskResult] = await Promise.all([
+    const [propertyResult, leadResult, taskResult, reviewResult] = await Promise.all([
       client.from("properties").select("*").order("updated_at", { ascending: false }),
       client.from("leads").select("*").order("created_at", { ascending: false }),
       client.from("follow_ups").select("*").order("due_at", { ascending: true }),
+      client.from("reviews").select("*").order("created_at", { ascending: false }),
     ]);
-    const err = propertyResult.error || leadResult.error || taskResult.error;
+    const err = propertyResult.error || leadResult.error || taskResult.error || reviewResult.error;
     if (err) toast.error(`No se pudieron cargar algunos datos: ${err.message}`);
     const propertyRows = (propertyResult.data ?? []) as PropertyRow[];
     const privatePaths = [...new Set(propertyRows.flatMap((row) => (row.images ?? []).map(imageObjectPath).filter((path): path is string => Boolean(path))))];
@@ -135,6 +139,7 @@ export default function Admin() {
     setProperties(propertyRows);
     setLeads((leadResult.data ?? []) as LeadRow[]);
     setFollowUps((taskResult.data ?? []) as FollowUpRow[]);
+    setReviews((reviewResult.data ?? []) as ReviewRow[]);
     if (profile && ["owner", "admin"].includes(profile.role)) {
       const [auditResult, teamResult] = await Promise.all([
         client.from("audit_logs").select("*").order("created_at", { ascending: false }).limit(100),
@@ -320,6 +325,16 @@ export default function Admin() {
     const { error } = await supabase.from("follow_ups").delete().eq("id", task.id);
     if (error) toast.error(error.message); else { toast.success("Seguimiento eliminado"); await loadWorkspace(); }
   };
+  const updateReview = async (review: ReviewRow, is_approved: boolean) => {
+    if (!supabase) return;
+    const { error } = await supabase.from("reviews").update({ is_approved }).eq("id", review.id);
+    if (error) toast.error(error.message); else { toast.success(is_approved ? "Reseña publicada" : "Reseña ocultada"); await loadWorkspace(); }
+  };
+  const deleteReview = async (review: ReviewRow) => {
+    if (!supabase || !canDeleteRecords || !window.confirm(`¿Eliminar la reseña de ${review.author_name}?`)) return;
+    const { error } = await supabase.from("reviews").delete().eq("id", review.id);
+    if (error) toast.error(error.message); else { toast.success("Reseña eliminada"); await loadWorkspace(); }
+  };
   const changeTeamRole = async (member: TeamRow, nextRole: Role) => {
     if (!supabase || member.id === session?.user.id || member.role === nextRole) return;
     if (!window.confirm(`¿Cambiar el cargo de ${member.full_name || member.email || "esta cuenta"} a “${roleNames[nextRole]}”?`)) { await loadWorkspace(); return; }
@@ -360,6 +375,9 @@ export default function Admin() {
             <form className="admin-inline-form" onSubmit={addManualLead}><strong><Plus size={15} /> Agregar contacto</strong><input required minLength={2} value={leadDraft.name} onChange={(e) => setLeadDraft({ ...leadDraft, name: e.target.value })} placeholder="Nombre"/><input type="email" value={leadDraft.email} onChange={(e) => setLeadDraft({ ...leadDraft, email: e.target.value })} placeholder="Email (opcional)"/><input value={leadDraft.phone} onChange={(e) => setLeadDraft({ ...leadDraft, phone: e.target.value })} placeholder="Teléfono"/><input required minLength={3} value={leadDraft.message} onChange={(e) => setLeadDraft({ ...leadDraft, message: e.target.value })} placeholder="Interés / nota inicial"/><button className="admin-primary-button" type="submit"><Plus size={15}/> Agregar</button></form>
             <div className="admin-toolbar"><label className="admin-search"><Search size={15}/><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar nombre, email o mensaje"/></label></div>
             {filteredLeads.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Contacto</th><th>Interés</th><th>Origen</th><th>Etapa</th><th>Fecha</th>{canDeleteRecords && <th>Acciones</th>}</tr></thead><tbody>{filteredLeads.map((lead) => <tr key={lead.id}><td><strong>{lead.name}</strong><small className="admin-contact-details">{lead.email && <span><Mail size={12}/> {lead.email}</span>}{lead.phone && <span><Phone size={12}/> {lead.phone}</span>}</small></td><td><span className="admin-message">{lead.message}</span>{lead.property_id && <small className="admin-subline">{properties.find((item) => item.id === lead.property_id)?.title ?? "Propiedad asociada"}</small>}</td><td>{lead.source === "website" ? "Sitio web" : lead.source === "manual" ? "Manual" : lead.source}</td><td><select className={`status-select lead-${lead.stage}`} value={lead.stage} onChange={(e) => void updateLeadStage(lead.id, e.target.value)} aria-label={`Etapa de ${lead.name}`}>{stageOptions.map((stage) => <option key={stage} value={stage}>{leadStages[stage]}</option>)}</select></td><td>{dateLabel(lead.created_at)}</td>{canDeleteRecords && <td><button type="button" className="admin-row-delete" aria-label={`Eliminar consulta de ${lead.name}`} onClick={() => void deleteLead(lead)}><Trash2 size={15}/></button></td>}</tr>)}</tbody></table></div> : <EmptyState title="No hay consultas" detail="Las consultas recibidas desde las fichas y los contactos manuales aparecerán aquí."/>}
+          </section>}
+          {tab === "reviews" && <section className="admin-panel-card"><div className="admin-panel-heading"><div><h2>Reseñas y reputación</h2><p>Moderá las reseñas enviadas desde la web antes de publicarlas.</p></div><span className="admin-count-pill">{reviews.filter((review) => !review.is_approved).length} pendientes</span></div>
+            {reviews.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Persona</th><th>Calificación</th><th>Comentario</th><th>Estado</th><th>Fecha</th><th>Acciones</th></tr></thead><tbody>{reviews.map((review) => <tr key={review.id}><td><strong>{review.author_name}</strong></td><td><span className="review-stars" aria-label={`${review.rating} de 5 estrellas`}>{"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}</span></td><td><span className="admin-message">{review.comment}</span></td><td><span className={`lead-stage-pill ${review.is_approved ? "status-published" : "lead-new"}`}>{review.is_approved ? "Publicada" : "Pendiente"}</span></td><td>{dateLabel(review.created_at)}</td><td><div className="admin-row-actions"><button type="button" aria-label={review.is_approved ? "Ocultar reseña" : "Publicar reseña"} onClick={() => void updateReview(review, !review.is_approved)}>{review.is_approved ? <X size={15} /> : <Check size={15} />}</button>{canDeleteRecords && <button type="button" className="danger" aria-label={`Eliminar reseña de ${review.author_name}`} onClick={() => void deleteReview(review)}><Trash2 size={15} /></button>}</div></td></tr>)}</tbody></table></div> : <EmptyState title="No hay reseñas todavía" detail="Las reseñas enviadas desde la página pública aparecerán aquí para su moderación."/>}
           </section>}
           {tab === "followups" && <section className="admin-panel-card"><div className="admin-panel-heading"><div><h2>Agenda de seguimientos</h2><p>Organizá llamadas, visitas y próximos pasos comerciales.</p></div><span className="admin-count-pill">{pendingTasks.length} pendientes</span></div>
             <form className="admin-task-form" onSubmit={addFollowUp}><label>Tarea<input required value={taskDraft.title} onChange={(e) => setTaskDraft({ ...taskDraft, title: e.target.value })} placeholder="Ej. Llamar para coordinar visita"/></label><label>Fecha y hora<input required type="datetime-local" value={taskDraft.due_at} onChange={(e) => setTaskDraft({ ...taskDraft, due_at: e.target.value })}/></label><label>Asociar consulta<select value={taskDraft.lead_id} onChange={(e) => setTaskDraft({ ...taskDraft, lead_id: e.target.value })}><option value="">Sin asociación</option>{leads.map((lead) => <option key={lead.id} value={lead.id}>{lead.name}</option>)}</select></label><label>Asociar propiedad<select value={taskDraft.property_id} onChange={(e) => setTaskDraft({ ...taskDraft, property_id: e.target.value })}><option value="">Sin asociación</option>{properties.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label><label className="task-notes-field">Nota<textarea value={taskDraft.notes} onChange={(e) => setTaskDraft({ ...taskDraft, notes: e.target.value })} rows={2} placeholder="Detalles del seguimiento"/></label><button type="submit" className="admin-primary-button"><Plus size={15}/> Crear seguimiento</button></form>
