@@ -14,7 +14,7 @@ La referencia visual aportada orienta la interfaz: header fijo de 64 px con fond
 
 Mantener React + TypeScript + Vite + Tailwind y Wouter. El inventario lo administra Supabase mediante Auth, Postgres y Storage desde el SDK oficial con `VITE_SUPABASE_URL` y la clave pública `VITE_SUPABASE_ANON_KEY`; nunca exponer `service_role`. Los roles `owner`, `admin`, `manager` y `secretary` tienen permisos RLS diferenciados. El panel `/#/admin` ofrece equipo/roles, inventario, CRM y seguimientos; auditoría append-only por triggers sólo para dueño/administrador. Los usuarios nuevos comienzan sin acceso y sólo owner/admin pueden asignar roles vía RPC segura; nadie modifica su propio cargo y no puede quedar el sistema sin dueño. Los anuncios locales sólo se muestran como demostración cuando no hay configuración Supabase. `/#/publicar` sigue siendo vista previa local. GitHub Pages recibe el build estático `dist/public`, navegación hash y recursos relativos; GitHub Actions despliega desde `main`.
 
-Rutas hash: `/#/` para explorar; `/#/propiedad/:slug` para la ficha; `/#/publicar` para el flujo demostrativo; `/#/admin` para administración; `/#/404` y el fallback de ruta desconocida para el error React. `client/public/404.html` cubre rutas limpias inexistentes que GitHub Pages responde con HTTP 404. Ambas páginas 404 centran el contenido respecto del viewport en escritorio y móvil. Mantener `client/public/manus-routes.json` sincronizado. Las fotografías ilustrativas viven bajo `client/public/property-images/`.
+Rutas hash: `/#/` para explorar; `/#/propiedad/:slug` para la ficha; `/#/publicar` para el flujo demostrativo; `/#/admin` para administración; `/#/404` y el fallback de ruta desconocida para el error React. `client/public/404.html` cubre rutas limpias inexistentes que GitHub Pages responde con HTTP 404. Ambas páginas 404 centran el contenido respecto del viewport en escritorio y móvil. Mantener `client/public/app-routes.json` sincronizado. Las fotografías ilustrativas viven bajo `client/public/property-images/`.
 
 Estructura del proyecto:
 
@@ -29,7 +29,7 @@ Estructura del proyecto:
 - `client/src/App.tsx`: rutas.
 - `client/src/index.css`: tokens blancos y azules, componentes y estilos responsive.
 - `client/public/property-images/`: fotografías ilustrativas seleccionadas.
-- `client/public/manus-routes.json`: manifiesto requerido de rutas.
+- `client/public/app-routes.json`: manifiesto requerido de rutas.
 
 ## Diseño
 
