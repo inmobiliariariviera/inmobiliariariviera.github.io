@@ -1,10 +1,9 @@
-import { jsxLocPlugin } from "@builder.io/vite-plugin-jsx-loc";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import fs from "node:fs";
 import path from "node:path";
 import { defineConfig, type Plugin, type ViteDevServer } from "vite";
-import { publicPlatformScript } from "./server/_core/publicConfig";
+import { publicPlatformScript } from "./server/_core/publicConfig.ts";
 
 // =============================================================================
 // Manus Debug Collector - Vite Plugin
@@ -168,9 +167,10 @@ function vitePluginPublicPlatformConfig(): Plugin {
   };
 }
 
-const plugins = [vitePluginPublicPlatformConfig(), react(), tailwindcss(), jsxLocPlugin(), vitePluginManusDebugCollector()];
+const plugins = [vitePluginPublicPlatformConfig(), react(), tailwindcss(), vitePluginManusDebugCollector()];
 
 export default defineConfig({
+  base: "./",
   plugins,
   resolve: {
     alias: {

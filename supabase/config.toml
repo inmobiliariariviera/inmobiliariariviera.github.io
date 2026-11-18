@@ -1,0 +1,8 @@
+# Funciones públicas intencionales: la puerta JWT se desactiva porque deben aceptar
+# visitantes anónimos. La función de consultas exige Turnstile y rate limit en servidor;
+# la función de imágenes solo emite URLs temporales para propiedades activas.
+[functions.submit-lead]
+verify_jwt = false
+
+[functions.public-property-images]
+verify_jwt = false
