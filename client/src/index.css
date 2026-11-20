@@ -1913,14 +1913,14 @@ html[data-theme="dark"] .team-invite-form input, html[data-theme="dark"] .team-i
 .app-shell:not(.admin-shell) .field-error,
 .app-shell:not(.admin-shell) .publish-form-actions .button,
 .app-shell:not(.admin-shell) .review-form label { font-size: 12px; }
-.app-shell:not(.admin-shell) .site-header .brand-text small { font-size: 8px; }
+.app-shell:not(.admin-shell) .site-header .brand-text small { font-size: 8px !important; }
 .app-shell:not(.admin-shell) .footer-brand small { font-size: 11px; }
 .app-shell:not(.admin-shell) .footer-email-link { white-space: normal; overflow-wrap: anywhere; }
 @media (max-width: 600px) {
   .app-shell:not(.admin-shell) .filter-toggle { font-size: 12px; }
   .app-shell:not(.admin-shell) .result-caption { font-size: 12px; }
   .app-shell:not(.admin-shell) .footer-bottom { font-size: 11px; }
-  .app-shell:not(.admin-shell) .site-header .brand-text small { font-size: 7px; letter-spacing: .07em; }
+  .app-shell:not(.admin-shell) .site-header .brand-text small { font-size: 7px !important; letter-spacing: .07em; }
 }
 
 
