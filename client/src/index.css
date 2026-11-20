@@ -2047,3 +2047,115 @@ html[data-theme="dark"] .team-invite-form input, html[data-theme="dark"] .team-i
   .admin-shell .rental-document-open,.admin-shell .rental-document-pending { margin-left: 45px; }
   .admin-shell .rental-dossier-form,.admin-shell .rental-subpanel { padding: 12px; }
 }
+
+
+/* Consulta pública: bienvenida clara, pasos sencillos y respuesta fácil de entender. */
+.app-shell:not(.admin-shell) .lead-inquiry-card {
+  width: 100%; margin-top: 0; padding: clamp(20px,3vw,32px); border: 1px solid #dfe6f2; border-radius: 22px;
+  background: linear-gradient(145deg,#fff 0%,#f7f9ff 100%); box-shadow: 0 16px 42px rgba(25,45,95,.08); color: #1d2c43;
+}
+.app-shell:not(.admin-shell) .lead-inquiry-heading { display: flex; align-items: flex-start; gap: 15px; margin-bottom: 20px; }
+.app-shell:not(.admin-shell) .lead-inquiry-icon { flex: 0 0 46px; width: 46px; height: 46px; display: grid; place-items: center; border-radius: 15px; background: #eaf0ff; color: #1d2c83; }
+.app-shell:not(.admin-shell) .lead-inquiry-kicker { display: block; margin-bottom: 5px; color: #5267a7; font-size: 11px; font-weight: 800; letter-spacing: .1em; }
+.app-shell:not(.admin-shell) .lead-inquiry-heading h2 { margin: 0 0 7px; color: #172653; font-size: clamp(22px,3vw,29px); line-height: 1.18; letter-spacing: -.025em; }
+.app-shell:not(.admin-shell) .lead-inquiry-heading p { margin: 0; max-width: 660px; color: #5d6b82; font-size: 14px; line-height: 1.6; }
+.app-shell:not(.admin-shell) .lead-property-context { display: grid; gap: 3px; margin: 0 0 19px; padding: 12px 15px; border: 1px solid #e2e9f6; border-radius: 13px; background: #f9fbff; }
+.app-shell:not(.admin-shell) .lead-property-context span { color: #6b7890; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.app-shell:not(.admin-shell) .lead-property-context strong { overflow-wrap: anywhere; color: #21366e; font-size: 14px; }
+.app-shell:not(.admin-shell) .lead-inquiry-card form { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; }
+.app-shell:not(.admin-shell) .lead-inquiry-card form .lead-field { display: grid; align-content: start; gap: 7px; min-width: 0; height: auto; padding: 0; border: 0; background: transparent; color: #283650; font-size: 13px; font-weight: 700; }
+.app-shell:not(.admin-shell) .lead-inquiry-card .lead-field > span { display: flex; align-items: baseline; gap: 6px; }
+.app-shell:not(.admin-shell) .lead-inquiry-card .lead-field > span small { color: #8390a4; font-size: 11px; font-weight: 500; }
+.app-shell:not(.admin-shell) .lead-input-wrap { display: flex; align-items: center; gap: 9px; min-width: 0; min-height: 48px; padding: 0 13px; border: 1px solid #d8e0ee; border-radius: 12px; background: #fff; color: #7585a3; transition: border-color .18s ease, box-shadow .18s ease, background .18s ease; }
+.app-shell:not(.admin-shell) .lead-input-wrap:focus-within { border-color: #6579c3; box-shadow: 0 0 0 3px rgba(70,96,174,.12); background: #fff; }
+.app-shell:not(.admin-shell) .lead-input-wrap svg { flex: 0 0 auto; }
+.app-shell:not(.admin-shell) .lead-input-wrap input { width: 100%; min-width: 0; height: 44px; padding: 0; border: 0; outline: 0; background: transparent; color: #1c2940; font: inherit; font-size: 14px; }
+.app-shell:not(.admin-shell) .lead-input-wrap input::placeholder,
+.app-shell:not(.admin-shell) .lead-message-field textarea::placeholder { color: #99a4b5; font-weight: 400; }
+.app-shell:not(.admin-shell) .lead-contact-hint { grid-column: 1 / -1; display: flex; align-items: center; gap: 7px; margin: -5px 0 0; color: #75829a; font-size: 12px; line-height: 1.5; }
+.app-shell:not(.admin-shell) .lead-contact-hint svg { flex: 0 0 auto; color: #7182ab; }
+.app-shell:not(.admin-shell) .lead-contact-hint.is-ready { color: #287252; }
+.app-shell:not(.admin-shell) .lead-contact-hint.is-ready svg { color: #287252; }
+.app-shell:not(.admin-shell) .lead-quick-questions { grid-column: 1 / -1; display: grid; gap: 8px; }
+.app-shell:not(.admin-shell) .lead-quick-questions > span { color: #6d7890; font-size: 12px; }
+.app-shell:not(.admin-shell) .lead-quick-questions > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.app-shell:not(.admin-shell) .lead-quick-questions button { min-height: 34px; padding: 6px 11px; border: 1px solid #dce4f3; border-radius: 999px; background: #fff; color: #314779; font-size: 12px; cursor: pointer; transition: border-color .18s ease, background .18s ease, transform .18s ease; }
+.app-shell:not(.admin-shell) .lead-quick-questions button:hover { transform: translateY(-1px); border-color: #9cadd7; background: #f3f6ff; }
+.app-shell:not(.admin-shell) .lead-quick-questions button:focus-visible { outline: 2px solid #5267a7; outline-offset: 2px; }
+.app-shell:not(.admin-shell) .lead-inquiry-card form .lead-message-field { grid-column: 1 / -1; }
+.app-shell:not(.admin-shell) .lead-message-field textarea { width: 100%; min-height: 112px; padding: 12px 13px; border: 1px solid #d8e0ee; border-radius: 12px; outline: 0; background: #fff; color: #1c2940; font: inherit; font-size: 14px; line-height: 1.55; resize: vertical; }
+.app-shell:not(.admin-shell) .lead-message-field textarea:focus { border-color: #6579c3; box-shadow: 0 0 0 3px rgba(70,96,174,.12); }
+.app-shell:not(.admin-shell) .lead-inquiry-card form label.lead-consent { grid-column: 1 / -1; display: flex; align-items: flex-start; gap: 9px; min-height: 38px; height: auto; margin: 0; padding: 8px 0; border: 0; background: transparent; color: #5d6b82; font-size: 12px; font-weight: 400; line-height: 1.5; }
+.app-shell:not(.admin-shell) .lead-inquiry-card form label.lead-consent input { flex: 0 0 17px; width: 17px; min-width: 17px; height: 17px; min-height: 17px; margin: 1px 0 0; accent-color: #1d2c83; }
+.app-shell:not(.admin-shell) .lead-inquiry-card form label.lead-consent span { flex: 1; }
+.app-shell:not(.admin-shell) .lead-inquiry-card form label.lead-honeypot { position: absolute !important; left: -10000px !important; width: 1px !important; height: 1px !important; overflow: hidden !important; }
+.app-shell:not(.admin-shell) .lead-inquiry-card .lead-captcha { grid-column: 1 / -1; min-height: 66px; }
+.app-shell:not(.admin-shell) .lead-inquiry-card .lead-captcha-warning { grid-column: 1 / -1; display: block; color: #986335; font-size: 12px; line-height: 1.5; }
+.app-shell:not(.admin-shell) .lead-inquiry-card form .lead-submit-button { grid-column: 1 / -1; justify-content: center; min-height: 50px; gap: 9px; border-radius: 12px; font-size: 15px; font-weight: 750; transition: transform .18s ease, box-shadow .18s ease, background .18s ease; }
+.app-shell:not(.admin-shell) .lead-inquiry-card form .lead-submit-button:not(:disabled):hover { transform: translateY(-1px); box-shadow: 0 9px 22px rgba(29,44,131,.19); }
+.app-shell:not(.admin-shell) .lead-inquiry-card form .lead-submit-button:focus-visible { outline: 3px solid rgba(82,103,167,.45); outline-offset: 3px; }
+.app-shell:not(.admin-shell) .lead-success-message { display: flex; align-items: flex-start; gap: 11px; margin: 0 0 18px; padding: 14px; border: 1px solid #bfe2d0; border-radius: 13px; background: #effaf4; color: #24583e; }
+.app-shell:not(.admin-shell) .lead-success-message > svg { flex: 0 0 auto; margin-top: 1px; color: #30835b; }
+.app-shell:not(.admin-shell) .lead-success-message strong { display: block; font-size: 14px; }
+.app-shell:not(.admin-shell) .lead-success-message p { margin: 4px 0 0; color: #426851; font-size: 13px; line-height: 1.5; }
+.app-shell:not(.admin-shell) .lead-success-message button { flex: 0 0 auto; margin-left: auto; border: 0; background: transparent; color: #286747; font-size: 12px; font-weight: 700; text-decoration: underline; cursor: pointer; }
+.app-shell:not(.admin-shell) .lead-inquiry-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; margin-top: 14px; color: #728097; font-size: 12px; line-height: 1.5; }
+.app-shell:not(.admin-shell) .lead-inquiry-footer a { display: inline-flex; align-items: center; gap: 6px; color: #287b55; font-weight: 700; text-decoration: none; }
+.app-shell:not(.admin-shell) .lead-inquiry-footer a:hover { color: #1b5b3d; text-decoration: underline; }
+html[data-theme="dark"] .app-shell:not(.admin-shell) .lead-inquiry-card { border-color: #303c51; background: linear-gradient(145deg,#151b25 0%,#182135 100%); color: #e9edf5; }
+html[data-theme="dark"] .app-shell:not(.admin-shell) .lead-inquiry-heading h2 { color: #f1f3f8; }
+html[data-theme="dark"] .app-shell:not(.admin-shell) .lead-inquiry-heading p,
+html[data-theme="dark"] .app-shell:not(.admin-shell) .lead-quick-questions > span { color: #aab5c9; }
+html[data-theme="dark"] .app-shell:not(.admin-shell) .lead-inquiry-icon { background: #222d47; color: #cbd5ff; }
+html[data-theme="dark"] .app-shell:not(.admin-shell) .lead-property-context,
+html[data-theme="dark"] .app-shell:not(.admin-shell) .lead-input-wrap,
+html[data-theme="dark"] .app-shell:not(.admin-shell) .lead-quick-questions button,
+html[data-theme="dark"] .app-shell:not(.admin-shell) .lead-message-field textarea { border-color: #39465b; background: #101722; color: #e7edf8; }
+html[data-theme="dark"] .app-shell:not(.admin-shell) .lead-property-context strong,
+html[data-theme="dark"] .app-shell:not(.admin-shell) .lead-inquiry-card form .lead-field { color: #e1e8f5; }
+html[data-theme="dark"] .app-shell:not(.admin-shell) .lead-input-wrap input,
+html[data-theme="dark"] .app-shell:not(.admin-shell) .lead-message-field textarea { color: #e7edf8; }
+html[data-theme="dark"] .app-shell:not(.admin-shell) .lead-input-wrap input::placeholder,
+html[data-theme="dark"] .app-shell:not(.admin-shell) .lead-message-field textarea::placeholder { color: #8c9ab0; }
+html[data-theme="dark"] .app-shell:not(.admin-shell) .lead-contact-hint,
+html[data-theme="dark"] .app-shell:not(.admin-shell) .lead-inquiry-footer { color: #aab5c9; }
+html[data-theme="dark"] .app-shell:not(.admin-shell) .lead-contact-hint.is-ready,
+html[data-theme="dark"] .app-shell:not(.admin-shell) .lead-inquiry-footer a { color: #8ad3aa; }
+html[data-theme="dark"] .app-shell:not(.admin-shell) .lead-success-message { border-color: #315d47; background: #14271d; color: #d6f4e2; }
+html[data-theme="dark"] .app-shell:not(.admin-shell) .lead-success-message p { color: #b7d8c5; }
+@media (max-width: 680px) {
+  .app-shell:not(.admin-shell) .lead-inquiry-card { padding: 20px 16px; border-radius: 18px; }
+  .app-shell:not(.admin-shell) .lead-inquiry-card form { grid-template-columns: minmax(0,1fr); }
+  .app-shell:not(.admin-shell) .lead-success-message { flex-wrap: wrap; }
+  .app-shell:not(.admin-shell) .lead-success-message button { margin-left: 32px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-shell:not(.admin-shell) .lead-inquiry-card *,
+  .app-shell:not(.admin-shell) .lead-inquiry-card *::before,
+  .app-shell:not(.admin-shell) .lead-inquiry-card *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}
+
+
+/* Acciones de conversión visibles en portada y ficha, sin desplazar el catálogo. */
+.hero-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 24px; }
+.hero-actions .button { min-height: 49px; padding: 0 17px; border-radius: 11px; font-size: 13px; font-weight: 700; }
+.hero-actions .button-primary { box-shadow: 0 9px 22px rgba(29,44,131,.17); }
+.hero-actions .button-secondary { border-color: #d9e1ef; background: rgba(255,255,255,.86); color: #263778; }
+.hero-actions .button-secondary:hover { border-color: #aab7d9; background: #fff; color: #1d2c83; }
+.property-aside .contact-actions .property-inquiry-cta { grid-column: 1 / -1; justify-content: center; gap: 8px; min-height: 48px; font-size: 12px; font-weight: 750; }
+.property-inquiry-cta svg:last-child { margin-left: auto; opacity: .8; }
+.property-phone-link { display: inline-flex; align-items: center; justify-content: center; gap: 7px; width: 100%; margin-top: 12px; color: #52627b; font-size: 11px; font-weight: 600; text-decoration: none; }
+.property-phone-link:hover { color: #1d2c83; text-decoration: underline; }
+html[data-theme="dark"] .hero-actions .button-secondary { border-color: #39465b; background: #1b2331; color: #dce4f5; }
+html[data-theme="dark"] .property-phone-link { color: #b6c1d5; }
+@media (max-width: 760px) {
+  .hero-actions { gap: 9px; }
+  .hero-actions .button { flex: 1 1 180px; justify-content: center; }
+}
+@media (max-width: 480px) {
+  .hero-actions { align-items: stretch; flex-direction: column; }
+  .hero-actions .button { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-actions .button { transition-duration: .01ms !important; }
+}

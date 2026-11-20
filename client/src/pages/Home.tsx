@@ -67,6 +67,10 @@ export default function Home() {
             <span className="eyebrow hero-eyebrow"><span className="eyebrow-dot" /> PROPIEDADES EN TRASLASIERRA</span>
             <h1>Un lugar propio.<br /><em>Una nueva historia.</em></h1>
             <p>Explorá campos, casas y terrenos con información clara para dar el próximo paso.</p>
+            <div className="hero-actions">
+              <button className="button button-primary" type="button" onClick={scrollToListings}><Search size={17} /> Explorar propiedades</button>
+              <a className="button button-secondary" href={createWhatsAppUrl("Hola, quiero recibir asesoramiento para encontrar una propiedad.")} target="_blank" rel="noopener noreferrer"><WhatsAppIcon size={17} /> Hablar con Riviera</a>
+            </div>
           </div>
           <div className="hero-visual" aria-hidden="true">
             <div className="hero-visual-art"><span className="hero-art-sun"/><span className="hero-art-ridge hero-art-ridge-back"/><span className="hero-art-ridge hero-art-ridge-front"/></div>
