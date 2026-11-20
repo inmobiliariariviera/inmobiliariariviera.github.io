@@ -19,7 +19,8 @@ export default function OperationsPanel({ properties, session, canManageFinance 
   const [finance, setFinance] = useState<FinanceRow[]>([]);
   const [currencyView, setCurrencyView] = useState<"ARS" | "USD">("ARS");
   const [draft, setDraft] = useState(emptyFinance);
-  const [calc, setCalc] = useState({ sale: "", owner: "", expenses: "", commission: "5", iva: "21", profitPercent: "6", currency: "USD" as "USD" | "ARS" });
+  const [calc, setCalc] = useState({ operation: "sale" as "sale" | "rent", saleValue: "", monthlyRent: "", termMonths: "", rentCommission: "5", buyerPercent: "3", iva: "21", currency: "USD" as "USD" | "ARS" });
+  const [operatingExpenses, setOperatingExpenses] = useState("");
   const [usdRate, setUsdRate] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
   const [editing, setEditing] = useState<FinanceRow | null>(null);
@@ -47,14 +48,24 @@ export default function OperationsPanel({ properties, session, canManageFinance 
     if (row.status === "completed") acc[row.currency][row.type] += Number(row.amount);
     return acc;
   }, { USD: { income: 0, expense: 0, owner_payment: 0, agency_profit: 0, commission: 0 }, ARS: { income: 0, expense: 0, owner_payment: 0, agency_profit: 0, commission: 0 } } as Record<"USD" | "ARS", Record<FinanceType, number>>), [finance]);
-  const sale = Number(calc.sale) || 0;
-  const owner = Number(calc.owner) || 0;
-  const expenses = Number(calc.expenses) || 0;
-  const commissionAmount = sale * ((Number(calc.commission) || 0) / 100);
-  const ivaAmount = commissionAmount * ((Number(calc.iva) || 0) / 100);
-  const agencyProfit = commissionAmount - expenses;
-  const profitAtPercentage = sale * ((Number(calc.profitPercent) || 0) / 100);
-  const convertedSale = Number(usdRate) > 0 ? (calc.currency === "USD" ? sale * Number(usdRate) : sale / Number(usdRate)) : null;
+  const saleValue = Number(calc.saleValue) || 0;
+  const monthlyRent = Number(calc.monthlyRent) || 0;
+  const termMonths = Number(calc.termMonths) || 0;
+  const contractRentTotal = monthlyRent * termMonths;
+  const baseValue = calc.operation === "sale" ? saleValue : contractRentTotal;
+  const buyerCommissionPercent = Math.min(6, Math.max(0, Number(calc.buyerPercent) || 0));
+  const sellerCommissionPercent = 6 - buyerCommissionPercent;
+  const buyerCommission = saleValue * buyerCommissionPercent / 100;
+  const sellerCommission = saleValue * sellerCommissionPercent / 100;
+  const commissionAmount = calc.operation === "sale" ? saleValue * 0.06 : contractRentTotal * ((Number(calc.rentCommission) || 0) / 100);
+  const ivaRate = Number(calc.iva) || 0;
+  const ivaAmount = commissionAmount * ivaRate / 100;
+  const sellerIva = sellerCommission * ivaRate / 100;
+  const buyerIva = buyerCommission * ivaRate / 100;
+  const rivieraExpenses = Number(operatingExpenses) || 0;
+  const agencyProfit = commissionAmount - rivieraExpenses;
+  const sellerNet = saleValue - sellerCommission - sellerIva;
+  const convertedBase = Number(usdRate) > 0 ? (calc.currency === "USD" ? baseValue * Number(usdRate) : baseValue / Number(usdRate)) : null;
   const verifyProfitPin = async (event: FormEvent) => {
     event.preventDefault();
     if (!supabase || !canManageFinance || !profitPin) return;
@@ -144,7 +155,47 @@ export default function OperationsPanel({ properties, session, canManageFinance 
 
   return <section className="admin-operations-page">
     <div className="operations-alert-grid"><article className="operations-summary-card"><span><WalletCards size={18} /></span><small>Ingresos realizados</small><strong>{money(totals.ARS.income, "ARS")}</strong><strong>{money(totals.USD.income, "USD")}</strong><p>Acumulado separado por moneda</p></article><article className="operations-summary-card operations-private-profit"><span><LockKeyhole size={18} /></span><small>Ganancia Riviera · privada</small>{profitUnlocked ? <><strong>{money(totals.ARS.agency_profit + totals.ARS.commission, "ARS")}</strong><strong>{money(totals.USD.agency_profit + totals.USD.commission, "USD")}</strong><p>ARS y USD por separado</p><button type="button" className="profit-lock-button" onClick={() => void lockProfit()}>Bloquear</button></> : canManageFinance ? <form className="profit-unlock-form" onSubmit={(event) => void verifyProfitPin(event)}><label htmlFor="profit-pin">Contraseña para ver este bloque</label><div><input id="profit-pin" type="password" autoComplete="current-password" required value={profitPin} onChange={(event) => setProfitPin(event.target.value)} /><button type="submit" disabled={checkingProfitPin}>{checkingProfitPin ? "Verificando…" : <><Eye size={15}/> Desbloquear</>}</button></div><p>Los demás datos de caja siguen disponibles.</p></form> : <p>Visible sólo para dueño/administrador con contraseña.</p>}</article></div>
-    <div className="operations-grid"><section className="admin-panel-card"><div className="admin-panel-heading"><div><h2><Calculator size={19} /> Calculadora interna</h2><p>Elegí pesos o dólares; los cálculos se mantienen en la moneda seleccionada.</p></div></div><div className="operations-calculator-grid"><label>Moneda de cálculo<select value={calc.currency} onChange={(e) => setCalc({ ...calc, currency: e.target.value as "USD" | "ARS" })}><option value="ARS">Pesos argentinos (ARS)</option><option value="USD">Dólares (USD)</option></select></label><label>Cotización actual · ARS por 1 USD<input type="number" min="0.01" step="0.01" inputMode="decimal" placeholder="Ingresá la cotización vigente" value={usdRate} onChange={(e) => setUsdRate(e.target.value)} /></label><label>Precio de operación<input type="number" min="0" value={calc.sale} onChange={(e) => setCalc({ ...calc, sale: e.target.value })} /></label><label>Pago al dueño<input type="number" min="0" value={calc.owner} onChange={(e) => setCalc({ ...calc, owner: e.target.value })} /></label><label>Gastos<input type="number" min="0" value={calc.expenses} onChange={(e) => setCalc({ ...calc, expenses: e.target.value })} /></label><label>Comisión %<input type="number" min="0" max="100" step="0.1" value={calc.commission} onChange={(e) => setCalc({ ...calc, commission: e.target.value })} /></label><label>IVA sobre comisión %<input type="number" min="0" max="100" step="0.1" inputMode="decimal" value={calc.iva} onChange={(e) => setCalc({ ...calc, iva: e.target.value })} /></label><label>Ganancia Riviera %<input type="number" min="0" max="100" step="0.1" inputMode="decimal" value={calc.profitPercent} onChange={(e) => setCalc({ ...calc, profitPercent: e.target.value })} /></label></div><div className="calculator-result-grid"><span>Comisión (base)<strong>{money(commissionAmount, calc.currency)}</strong></span><span>IVA ({calc.iva || 0}%)<strong>{money(ivaAmount, calc.currency)}</strong></span><span>Comisión menos gastos<strong>{profitUnlocked ? money(agencyProfit, calc.currency) : "••••••"}</strong></span><span>Ganancia Riviera ({calc.profitPercent || 0}%)<strong>{profitUnlocked ? money(profitAtPercentage, calc.currency) : "••••••"}</strong></span><span>Resultado dueño<strong>{money(Math.max(0, owner || sale - commissionAmount - ivaAmount), calc.currency)}</strong></span></div>{convertedSale !== null && <p className="finance-conversion">Equivalencia del precio: <strong>{money(sale, calc.currency)}</strong> ≈ <strong>{money(convertedSale, calc.currency === "USD" ? "ARS" : "USD")}</strong> · Cotización ingresada: 1 USD = {money(Number(usdRate), "ARS")}</p>}<small className="admin-subline">IVA estimado sobre la comisión base; confirmá el tratamiento fiscal con tu contador. La cotización la ingresás vos y los totales no mezclan ARS con USD.</small></section>
+    <div className="operations-grid"><section className="admin-panel-card">
+      <div className="admin-panel-heading"><div><h2><Calculator size={19} /> Calculadora interna</h2><p>Elegí una operación y moneda. Los importes y honorarios se calculan por separado.</p></div></div>
+      <div className="calculator-mode-tabs" role="tablist" aria-label="Tipo de cálculo"><button type="button" role="tab" aria-selected={calc.operation === "sale"} className={calc.operation === "sale" ? "active" : ""} onClick={() => setCalc({ ...calc, operation: "sale" })}>Venta</button><button type="button" role="tab" aria-selected={calc.operation === "rent"} className={calc.operation === "rent" ? "active" : ""} onClick={() => setCalc({ ...calc, operation: "rent" })}>Alquiler</button></div>
+      <div className="operations-calculator-grid">
+        <label>Moneda de cálculo<select value={calc.currency} onChange={(e) => setCalc({ ...calc, currency: e.target.value as "USD" | "ARS" })}><option value="ARS">Pesos argentinos (ARS)</option><option value="USD">Dólares (USD)</option></select></label>
+        <label>Cotización actual · ARS por 1 USD<input type="number" min="0.01" step="0.01" inputMode="decimal" placeholder="Ingresá la cotización vigente" value={usdRate} onChange={(e) => setUsdRate(e.target.value)} /></label>
+        {calc.operation === "sale" ? <>
+          <label>Precio de venta del inmueble<input type="number" min="0" step="0.01" inputMode="decimal" value={calc.saleValue} onChange={(e) => setCalc({ ...calc, saleValue: e.target.value })} /></label>
+          <label>Comisión a cargo del comprador (%)<input type="number" min="0" max="6" step="0.1" inputMode="decimal" value={calc.buyerPercent} onChange={(e) => setCalc({ ...calc, buyerPercent: e.target.value })} /></label>
+          <label>IVA estimado sobre honorarios (%)<input type="number" min="0" max="100" step="0.1" inputMode="decimal" value={calc.iva} onChange={(e) => setCalc({ ...calc, iva: e.target.value })} /></label>
+        </> : <>
+          <label>Alquiler mensual inicial<input type="number" min="0" step="0.01" inputMode="decimal" value={calc.monthlyRent} onChange={(e) => setCalc({ ...calc, monthlyRent: e.target.value })} /></label>
+          <label>Duración del contrato (meses)<input type="number" min="1" step="1" inputMode="numeric" value={calc.termMonths} onChange={(e) => setCalc({ ...calc, termMonths: e.target.value })} /></label>
+          <label>Comisión de referencia sobre el contrato (%)<input type="number" min="0" max="100" step="0.1" inputMode="decimal" value={calc.rentCommission} onChange={(e) => setCalc({ ...calc, rentCommission: e.target.value })} /></label>
+          <label>IVA estimado sobre honorarios (%)<input type="number" min="0" max="100" step="0.1" inputMode="decimal" value={calc.iva} onChange={(e) => setCalc({ ...calc, iva: e.target.value })} /></label>
+        </>}
+        <label>Gastos operativos Riviera (para ganancia neta)<input type="number" min="0" step="0.01" inputMode="decimal" value={operatingExpenses} onChange={(e) => setOperatingExpenses(e.target.value)} /></label>
+      </div>
+      <div className="calculator-result-grid">
+        {calc.operation === "sale" ? <>
+          <span>Precio de venta<strong>{money(saleValue, calc.currency)}</strong></span>
+          <span>Comisión total Riviera · 6%<strong>{money(commissionAmount, calc.currency)}</strong></span>
+          <span>Parte vendedor · {sellerCommissionPercent.toLocaleString("es-AR")}%<strong>{money(sellerCommission, calc.currency)}</strong></span>
+          <span>Parte comprador · {buyerCommissionPercent.toLocaleString("es-AR")}%<strong>{money(buyerCommission, calc.currency)}</strong></span>
+          <span>IVA estimado · {ivaRate}%<strong>{money(ivaAmount, calc.currency)}</strong></span>
+          <span>Neto estimado para vendedor<strong>{money(sellerNet, calc.currency)}</strong></span>
+          <span>Total honorarios + IVA comprador<strong>{money(buyerCommission + buyerIva, calc.currency)}</strong></span>
+          <span>Total honorarios + IVA vendedor<strong>{money(sellerCommission + sellerIva, calc.currency)}</strong></span>
+        </> : <>
+          <span>Total estimado de alquileres · canon inicial × meses<strong>{money(contractRentTotal, calc.currency)}</strong></span>
+          <span>Honorarios de referencia · {calc.rentCommission || 0}% del contrato<strong>{money(commissionAmount, calc.currency)}</strong></span>
+          <span>IVA estimado · {ivaRate}%<strong>{money(ivaAmount, calc.currency)}</strong></span>
+          <span>Total honorarios + IVA · referencia locatario<strong>{money(commissionAmount + ivaAmount, calc.currency)}</strong></span>
+          <span>Alquileres brutos del locador · sin actualizaciones<strong>{money(contractRentTotal, calc.currency)}</strong></span>
+        </>}
+        <span>Ganancia neta estimada Riviera · privada<strong>{profitUnlocked ? money(agencyProfit, calc.currency) : "••••••"}</strong></span>
+      </div>
+      {convertedBase !== null && <p className="finance-conversion">Equivalencia de la base: <strong>{money(baseValue, calc.currency)}</strong> ≈ <strong>{money(convertedBase, calc.currency === "USD" ? "ARS" : "USD")}</strong> · Cotización: 1 USD = {money(Number(usdRate), "ARS")}</p>}
+      {calc.operation === "sale" ? <small className="admin-subline">Venta: comisión total Riviera fijada en 6% del precio. La distribución inicial es 3% por parte; el campo del comprador permite mover la distribución y el porcentaje del vendedor completa el 6%. La escala supletoria cordobesa indica 3% a cada parte cuando no hay acuerdo. IVA aparte y editable.</small> : <small className="admin-subline">Alquiler: referencia de Córdoba de 5% del monto total del contrato a cargo del locatario sólo a falta de acuerdo; los honorarios se pactan libremente. La comisión se calcula sobre canon inicial × meses, sin aumentos futuros. Podés ajustar el porcentaje al acuerdo real. IVA aparte y editable.</small>}
+      <small className="admin-subline">La ganancia privada estima honorarios base menos gastos operativos Riviera; el IVA se muestra aparte. Verificá el acuerdo firmado y el tratamiento fiscal con el profesional correspondiente. <a href="https://cpicordoba.org.ar/wp-content/uploads/2025/04/Ley-9445-CPI.pdf" target="_blank" rel="noreferrer">Ley 9445 de Córdoba · arts. 24–25</a>.</small>
+    </section>
     <section className="admin-panel-card"><div className="admin-panel-heading"><div><h2><Plus size={19} /> Registrar movimiento</h2><p>Los cambios quedan auditados y se marcan por color.</p></div></div><form className="operations-finance-form" onSubmit={addFinance}><select aria-label="Tipo de movimiento" value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value as FinanceType })}>{Object.entries(typeNames).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select><input required placeholder="Descripción" value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} /><input required type="number" min="0" step="0.01" placeholder="Importe" value={draft.amount} onChange={(e) => setDraft({ ...draft, amount: e.target.value })} /><select aria-label="Moneda" value={draft.currency} onChange={(e) => setDraft({ ...draft, currency: e.target.value as "USD" | "ARS" })}><option>USD</option><option>ARS</option></select><select aria-label="Propiedad asociada" value={draft.property_id} onChange={(e) => setDraft({ ...draft, property_id: e.target.value })}><option value="">Sin propiedad</option>{properties.map((property) => <option key={property.id} value={property.id}>{property.title}</option>)}</select><button className="admin-primary-button" type="submit" disabled={!canManageFinance || saving}><Save size={15} /> Registrar</button></form></section></div>
     <section className="admin-panel-card"><div className="admin-panel-heading"><div><h2>Movimientos y pagos</h2><p>Ingresos, salidas, pagos a dueños y ganancia de la inmobiliaria, separados por moneda.</p></div><span className="admin-count-pill">{finance.length} registros recientes</span></div><div className="finance-currency-tabs" role="tablist" aria-label="Moneda de movimientos"><button type="button" role="tab" aria-selected={currencyView === "ARS"} className={currencyView === "ARS" ? "active" : ""} onClick={() => setCurrencyView("ARS")}>Pesos argentinos · ARS <span>{finance.filter((row) => row.currency === "ARS").length}</span></button><button type="button" role="tab" aria-selected={currencyView === "USD"} className={currencyView === "USD" ? "active" : ""} onClick={() => setCurrencyView("USD")}>Dólares · USD <span>{finance.filter((row) => row.currency === "USD").length}</span></button></div>
       {editing && <form className="finance-edit-form" onSubmit={saveEdit}><div className="finance-edit-title"><strong>Editar movimiento</strong><button type="button" className="admin-icon-button" aria-label="Cerrar edición" onClick={() => setEditing(null)}><X size={17}/></button></div><div className="operations-finance-form"><select aria-label="Tipo" value={editDraft.type} onChange={(e) => setEditDraft({ ...editDraft, type: e.target.value as FinanceType })}>{Object.entries(typeNames).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select><input required aria-label="Descripción" placeholder="Descripción" value={editDraft.description} onChange={(e) => setEditDraft({ ...editDraft, description: e.target.value })}/><input required aria-label="Importe" type="number" min="0" step="0.01" value={editDraft.amount} onChange={(e) => setEditDraft({ ...editDraft, amount: e.target.value })}/><select aria-label="Moneda" value={editDraft.currency} onChange={(e) => setEditDraft({ ...editDraft, currency: e.target.value as "USD" | "ARS" })}><option>USD</option><option>ARS</option></select><select aria-label="Propiedad" value={editDraft.property_id} onChange={(e) => setEditDraft({ ...editDraft, property_id: e.target.value })}><option value="">Sin propiedad</option>{properties.map((property) => <option key={property.id} value={property.id}>{property.title}</option>)}</select><button type="submit" className="admin-primary-button" disabled={saving}><Save size={15}/> Guardar cambios</button><input className="finance-notes-input" aria-label="Notas" placeholder="Notas (opcional)" value={editDraft.notes} onChange={(e) => setEditDraft({ ...editDraft, notes: e.target.value })}/></div></form>}

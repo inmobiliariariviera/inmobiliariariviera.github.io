@@ -12,6 +12,7 @@ import { createFacebookShareUrl, INSTAGRAM_PROFILE_URL, YOUTUBE_CHANNEL_URL } fr
 import WhatsAppIcon from "@/components/real-estate/WhatsAppIcon";
 import ReviewsSection from "@/components/real-estate/ReviewsSection";
 import FAQSection from "@/components/real-estate/FAQSection";
+import LeadInquiryForm from "@/components/real-estate/LeadInquiryForm";
 
 export default function Home() {
   const query = new URLSearchParams(window.location.hash.split("?")[1] ?? window.location.search.slice(1));
@@ -115,6 +116,7 @@ export default function Home() {
             <a className="contact-action contact-action-youtube" href={YOUTUBE_CHANNEL_URL} target="_blank" rel="noopener noreferrer"><Youtube size={19}/><span><strong>YouTube</strong><small>@inmobiliaria.riviera</small></span><ArrowRight size={16}/></a>
             <a className="contact-action contact-action-facebook" href={createFacebookShareUrl()} target="_blank" rel="noopener noreferrer" title="Compartir el portal en Facebook"><Facebook size={19}/><span><strong>Facebook</strong><small>Compartí el portal</small></span><ArrowRight size={16}/></a>
           </div>
+          <div className="contact-inquiry-wrap"><LeadInquiryForm propertyTitle="consulta inmobiliaria" /></div>
         </section>
       </main>
       <SiteFooter />

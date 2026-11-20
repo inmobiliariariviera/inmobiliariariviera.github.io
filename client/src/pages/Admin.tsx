@@ -8,12 +8,13 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import OperationsPanel from "@/components/real-estate/OperationsPanel";
+import RentalDossiersPanel from "@/components/real-estate/RentalDossiersPanel";
 import AdminPinDialog from "@/components/real-estate/AdminPinDialog";
 import { formatPrice, type PropertyStatus } from "@/data/properties";
 import { isSupabaseConfigured, supabase, type PropertyRow } from "@/lib/supabase";
 
 type Role = "owner" | "admin" | "manager" | "secretary" | "user";
-type Tab = "overview" | "properties" | "leads" | "reviews" | "followups" | "operations" | "audit" | "team";
+type Tab = "overview" | "properties" | "leads" | "reviews" | "followups" | "operations" | "rentals" | "audit" | "team";
 type LeadRow = {
   id: string; name: string; email: string | null; phone: string | null; message: string;
   property_id: string | null; stage: string; source: string; created_at: string; budget_max: number | string | null; budget_currency: "USD" | "ARS" | null; financing: string | null; urgency: string | null; preferred_operation: string | null; preferred_zone: string | null; priority: "high" | "normal" | "low"; tags: string[] | null;
@@ -54,6 +55,7 @@ const tabs: { id: Tab; label: string; icon: typeof Home }[] = [
   { id: "reviews", label: "Reseñas", icon: Star },
   { id: "followups", label: "Seguimientos", icon: CalendarClock },
   { id: "operations", label: "Operaciones y caja", icon: WalletCards },
+  { id: "rentals", label: "Carpetas de alquiler", icon: ClipboardList },
   { id: "audit", label: "Auditoría", icon: FileClock },
   { id: "team", label: "Equipo y roles", icon: BadgeCheck },
 ];
@@ -399,10 +401,11 @@ export default function Admin() {
   if (!isSupabaseConfigured || !supabase) return <SetupMessage />;
   if (authLoading) return <AdminLoading />;
   if (!session) return <LoginView login={login} setLogin={setLogin} registerName={registerName} setRegisterName={setRegisterName} mode={authMode} setMode={setAuthMode} onSubmit={signIn} onRegister={registerAccount} loading={loggingIn} />;
+  if (session.user.user_metadata?.must_change_password === true) return <SetInitialPassword session={session} onComplete={setSession} />;
   if (!profile) return <AccessDenied onSignOut={signOut} loading={true} />;
   if (!["owner", "admin", "manager", "secretary"].includes(profile.role)) return <AccessDenied onSignOut={signOut} loading={false} />;
 
-  const visibleTabs = tabs.filter((item) => item.id === "audit" ? isAdmin : item.id === "team" ? canManageTeam : item.id === "operations" ? isAdmin : true);
+  const visibleTabs = tabs.filter((item) => item.id === "audit" ? isAdmin : item.id === "team" ? canManageTeam : item.id === "operations" ? isAdmin : item.id === "rentals" ? ["owner", "admin", "manager", "secretary"].includes(role) : true);
   return (
     <div className="app-shell admin-shell">
       <AdminHeader roleLabel={roleNames[role]} notifications={isAdmin ? reviewDueProperties.map((item) => `${item.title} · ${Math.floor((Date.now() - new Date(item.created_at).getTime()) / 86400000)} días publicada`) : []} onNotificationClick={() => setTab("operations")} onSignOut={signOut} showNotifications={isAdmin} />
@@ -435,6 +438,7 @@ export default function Admin() {
             {followUps.length ? <div className="admin-task-list">{followUps.map((task) => { const property = properties.find((item) => item.id === task.property_id); const lead = leads.find((item) => item.id === task.lead_id); const overdue = task.status === "pending" && new Date(task.due_at).getTime() < Date.now(); return <article className={`admin-task-row ${task.status === "done" ? "is-done" : ""}`} key={task.id}><button className="task-check" type="button" disabled={!isAdmin} title={!isAdmin ? "Sólo dueño o administrador puede editar" : undefined} aria-label={task.status === "done" ? "Reabrir seguimiento" : "Marcar completado"} onClick={() => void toggleFollowUp(task)}>{task.status === "done" ? <CheckCircle2 size={19}/> : <span/>}</button><div className="admin-task-copy"><strong>{task.title}</strong>{task.notes && <p>{task.notes}</p>}<small>{lead && <span><Users size={12}/>{lead.name}</span>}{property && <span><Building2 size={12}/>{property.title}</span>}</small></div><span className={`task-date ${overdue ? "is-overdue" : ""}`}><Clock3 size={13}/>{dateLabel(task.due_at)}{overdue && " · Vencida"}</span>{canDeleteRecords && <button type="button" className="admin-row-delete" aria-label={`Eliminar seguimiento ${task.title}`} onClick={() => void deleteFollowUp(task)}><Trash2 size={15}/></button>}</article>;})}</div> : <EmptyState title="Sin seguimientos agendados" detail="Agregá una llamada, visita u otra acción para no perder el próximo paso."/>}
           </section>}
           {tab === "operations" && <OperationsPanel properties={properties} session={session} canManageFinance={isAdmin} />}
+          {tab === "rentals" && <RentalDossiersPanel properties={properties} role={role as Exclude<Role, "user">} currentUserId={session.user.id} />}
           {tab === "audit" && <section className="admin-panel-card">
             <div className="admin-panel-heading"><div><h2>Registro de actividad y eliminaciones</h2><p>Eventos de creación, edición y borrado con quién los realizó, cuándo ocurrieron y texto anterior/posterior. El historial operativo asociado permanece intacto al borrar una entrada de auditoría.</p></div><div className="admin-audit-heading-actions"><span className="admin-count-pill">{audit.length} eventos recientes</span>{role === "owner" && <button type="button" className="finance-delete-all" onClick={() => void clearAuditHistory()} disabled={!audit.length}><Trash2 size={15}/> Vaciar bitácora</button>}</div></div>
             {audit.length ? <div className="admin-audit-list">{audit.map((item) => {
@@ -447,7 +451,7 @@ export default function Admin() {
               </details>;
             })}</div> : <EmptyState title="Todavía no hay actividad" detail="Las altas, ediciones y eliminaciones registradas aparecerán aquí con antes y después en formato de texto."/>}
           </section>}
-          {tab === "team" && canManageTeam && <TeamManager team={team} currentUserId={session.user.id} currentRole={role} onRoleChange={changeTeamRole} />}
+          {tab === "team" && canManageTeam && <TeamManager team={team} currentUserId={session.user.id} currentRole={role} onRoleChange={changeTeamRole} onRefresh={loadWorkspace} />}
         </section>
       </main>
       {pendingPinAction && <AdminPinDialog title={pendingPinAction.title} description={pendingPinAction.description} actionLabel={pendingPinAction.actionLabel} onAuthorized={pendingPinAction.run} onCancel={() => setPendingPinAction(null)} />}
@@ -569,13 +573,63 @@ function LoginView({ login, setLogin, registerName, setRegisterName, mode, setMo
   const registering = mode === "sign_up";
   return <div className="admin-login-page"><AdminHeader/><main className="admin-login-card"><span className="admin-login-icon"><ShieldCheck size={25}/></span><span className="admin-eyebrow">{registering ? "REGISTRO EN SUPABASE" : "ACCESO DEL EQUIPO"}</span><h1>{registering ? "Crear cuenta" : "Panel de administración"}</h1><p>{registering ? "Registrá el correo y la contraseña en Supabase Auth. La cuenta nueva comienza sin permisos; el dueño o administrador debe asignarle un rol." : "Ingresá con una cuenta registrada en Supabase Auth y autorizada por la inmobiliaria."}</p><form onSubmit={registering ? onRegister : onSubmit}>{registering && <label>Nombre completo<input autoComplete="name" required maxLength={120} value={registerName} onChange={(e) => setRegisterName(e.target.value)} /></label>}<label>Email<input type="email" autoComplete="username" required value={login.email} onChange={(e) => setLogin({ ...login, email: e.target.value })}/></label><label>Contraseña<input type="password" autoComplete={registering ? "new-password" : "current-password"} minLength={registering ? 8 : undefined} required value={login.password} onChange={(e) => setLogin({ ...login, password: e.target.value })}/></label><button className="admin-primary-button" type="submit" disabled={loading}>{loading ? <LoaderCircle className="spin" size={16}/> : <ShieldCheck size={16}/>} {loading ? "Procesando…" : registering ? "Crear cuenta en Supabase" : "Iniciar sesión"}</button></form><button type="button" className="admin-auth-mode-toggle" onClick={() => setMode(registering ? "sign_in" : "sign_up")}>{registering ? "Ya tengo una cuenta · Iniciar sesión" : "¿No tenés una cuenta? Registrarse"}</button>{!registering && <small>El acceso administrativo sólo se habilita para cuentas a las que dueño/administrador les asigne un rol. El registro está sujeto a la configuración de Supabase Auth.</small>}</main></div>;
 }
+function SetInitialPassword({ session, onComplete }: { session: Session; onComplete: (session: Session | null) => void }) {
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [savingPassword, setSavingPassword] = useState(false);
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!supabase || password.length < 8) { toast.error("La contraseña debe tener al menos 8 caracteres."); return; }
+    if (password !== confirmPassword) { toast.error("Las contraseñas no coinciden."); return; }
+    setSavingPassword(true);
+    const { error } = await supabase.auth.updateUser({ password, data: { ...session.user.user_metadata, must_change_password: false } });
+    if (error) toast.error(error.message);
+    else {
+      const { data } = await supabase.auth.getSession();
+      setPassword(""); setConfirmPassword("");
+      toast.success("Contraseña configurada. Ya podés acceder al panel.");
+      onComplete(data.session);
+    }
+    setSavingPassword(false);
+  };
+  return <div className="admin-login-page"><AdminHeader onSignOut={() => { void supabase?.auth.signOut(); onComplete(null); }} /><main className="admin-login-card"><span className="admin-login-icon"><ShieldCheck size={25}/></span><span className="admin-eyebrow">INVITACIÓN DEL EQUIPO</span><h1>Definí tu contraseña</h1><p>Tu cuenta ya tiene el cargo asignado por el Dueño. Creá una contraseña personal; el Dueño no puede verla ni recuperarla.</p><form onSubmit={(event) => void submit(event)}><label>Nueva contraseña<input type="password" autoComplete="new-password" minLength={8} required value={password} onChange={(event) => setPassword(event.target.value)} /></label><label>Repetir contraseña<input type="password" autoComplete="new-password" minLength={8} required value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} /></label><button className="admin-primary-button" type="submit" disabled={savingPassword}>{savingPassword ? <LoaderCircle className="spin" size={16}/> : <ShieldCheck size={16}/>} {savingPassword ? "Guardando…" : "Guardar contraseña y continuar"}</button></form><small>La contraseña se guarda únicamente en Supabase Auth, no en la base de datos del panel.</small></main></div>;
+}
+
 function SetupMessage() { return <div className="admin-login-page"><AdminHeader/><main className="admin-login-card setup-card"><span className="admin-login-icon"><AlertTriangle size={25}/></span><span className="admin-eyebrow">FALTA CONFIGURACIÓN</span><h1>Conectá Supabase</h1><p>Definí <code>VITE_SUPABASE_URL</code> y <code>VITE_SUPABASE_ANON_KEY</code> en `.env.local` para desarrollo o en GitHub Actions para publicar. Aplicá primero <code>supabase/schema.sql</code> y creá primero el usuario dueño en Supabase Auth y luego asignale el rol owner.</p><a className="admin-secondary-button" href="https://supabase.com/dashboard" target="_blank" rel="noreferrer">Abrir Supabase</a></main></div>; }
 function AccessDenied({ onSignOut, loading }: { onSignOut: () => void; loading: boolean }) { return <div className="admin-login-page"><AdminHeader onSignOut={onSignOut}/><main className="admin-login-card"><span className="admin-login-icon"><ShieldCheck size={25}/></span><h1>{loading ? "Verificando acceso…" : "Acceso no autorizado"}</h1><p>{loading ? "Consultando los permisos de esta cuenta." : "La cuenta inició sesión, pero todavía no tiene un rol habilitado. Solicitá autorización al dueño o administrador del sistema."}</p>{!loading && <button className="admin-secondary-button" type="button" onClick={onSignOut}><LogOut size={15}/> Cerrar sesión</button>}</main></div>; }
 function AdminLoading() { return <div className="admin-login-page"><AdminHeader/><div className="admin-loading"><LoaderCircle className="spin" size={25}/> Cargando acceso…</div></div>; }
 function EmptyState({ title, detail }: { title: string; detail: string }) { return <div className="admin-empty"><span><ClipboardList size={21}/></span><strong>{title}</strong><p>{detail}</p></div>; }
 
 
-function TeamManager({ team, currentUserId, currentRole, onRoleChange }: { team: TeamRow[]; currentUserId: string; currentRole: Role; onRoleChange: (member: TeamRow, role: Role) => void }) {
+function TeamInviteForm({ roles, onInvited }: { roles: Role[]; onInvited: () => Promise<void> }) {
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<Role>("secretary");
+  const [sending, setSending] = useState(false);
+  const invite = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!supabase || sending || fullName.trim().length < 2 || !email.trim()) return;
+    setSending(true);
+    const { data, error } = await supabase.functions.invoke("invite-team-member", {
+      body: { full_name: fullName.trim(), email: email.trim(), role },
+    });
+    if (error) {
+      let message = error.message;
+      if (error.context instanceof Response) {
+        try { const response = await error.context.clone().json() as { error?: string }; if (response.error) message = response.error; } catch { /* Keep the original function error. */ }
+      }
+      toast.error(message);
+    } else if (data?.ok) {
+      toast.success(`Invitación enviada a ${email.trim()} como ${roleNames[role]}. La persona definirá su contraseña desde el correo.`);
+      setFullName(""); setEmail(""); setRole("secretary");
+      await onInvited();
+    } else toast.error(data?.error ?? "No se pudo enviar la invitación.");
+    setSending(false);
+  };
+  return <section className="team-invite-card"><div><h3>Invitar una persona al equipo</h3><p>Supabase enviará un enlace de acceso; no ingreses ni compartas contraseñas ajenas.</p></div><form className="team-invite-form" onSubmit={(event) => void invite(event)}><label>Nombre completo<input required minLength={2} maxLength={120} autoComplete="name" value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Nombre y apellido" /></label><label>Correo electrónico<input required type="email" maxLength={254} autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="persona@ejemplo.com" /></label><label>Cargo<select value={role} onChange={(event) => setRole(event.target.value as Role)}>{roles.map((item) => <option key={item} value={item}>{roleNames[item]}</option>)}</select></label><button className="admin-primary-button" type="submit" disabled={sending}>{sending ? <LoaderCircle className="spin" size={16}/> : <Mail size={16}/>} {sending ? "Enviando invitación…" : "Invitar y asignar cargo"}</button></form></section>;
+}
+
+function TeamManager({ team, currentUserId, currentRole, onRoleChange, onRefresh }: { team: TeamRow[]; currentUserId: string; currentRole: Role; onRoleChange: (member: TeamRow, role: Role) => void; onRefresh: () => Promise<void> }) {
   const allRoles: Role[] = ["owner", "admin", "manager", "secretary", "user"];
   const availableRoles = currentRole === "owner" ? allRoles : ["manager", "secretary", "user"] as Role[];
   const permissions: { role: Role; detail: string }[] = [
@@ -587,13 +641,14 @@ function TeamManager({ team, currentUserId, currentRole, onRoleChange }: { team:
   ];
   return <section className="admin-panel-card">
     <div className="admin-panel-heading"><div><h2>Equipo y permisos</h2><p>Asigná el cargo adecuado a cada cuenta. Los cambios se registran en auditoría.</p></div><span className="admin-count-pill">{team.length} cuentas</span></div>
-    <div className="team-security-note"><ShieldCheck size={16}/><span>Registrá la cuenta desde el acceso (queda en Supabase Auth). Las cuentas nuevas comienzan sin acceso hasta que se les asigne un rol. Nadie puede cambiar su propio cargo; un administrador no puede crear ni modificar dueños/administradores.</span></div>
+    <div className="team-security-note"><ShieldCheck size={16}/><span>Las contraseñas no se comparten ni se almacenan en el panel. El Dueño invita por correo y asigna el cargo; cada persona define su propia contraseña desde el enlace seguro de Supabase. Nadie puede cambiar su propio cargo; un administrador no puede crear ni modificar dueños/administradores.</span></div>
+    {currentRole === "owner" && <TeamInviteForm roles={allRoles} onInvited={onRefresh} />}
     <div className="role-permission-grid">{permissions.map(({ role: permissionRole, detail }) => <article className="role-permission-card" key={permissionRole}><span className={`role-badge role-${permissionRole}`}>{roleNames[permissionRole]}</span><p>{detail}</p></article>)}</div>
     {team.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Persona</th><th>Acceso actual</th><th>Modificar cargo</th><th>Alta</th></tr></thead><tbody>{team.map((member) => {
       const restrictedAdmin = currentRole === "admin" && ["owner", "admin"].includes(member.role);
       const options = availableRoles.includes(member.role) ? availableRoles : [member.role, ...availableRoles];
       const isSelf = member.id === currentUserId;
-      return <tr key={member.id}><td><strong>{member.full_name || "Sin nombre"}</strong><small className="admin-contact-details">{member.email || member.id}</small></td><td><span className={`role-badge role-${member.role}`}>{roleNames[member.role]}</span></td><td><select className="status-select" aria-label={`Cargo de ${member.full_name || member.email || "usuario"}`} value={member.role} disabled={isSelf || restrictedAdmin} onChange={(event) => onRoleChange(member, event.target.value as Role)}>{options.map((roleOption) => <option key={roleOption} value={roleOption}>{roleNames[roleOption]}</option>)}</select>{isSelf && <small className="admin-subline">Tu cuenta: cambio bloqueado</small>}{restrictedAdmin && <small className="admin-subline">Sólo el dueño puede modificar este cargo</small>}</td><td>{dateLabel(member.created_at)}</td></tr>;
-    })}</tbody></table></div> : <EmptyState title="Todavía no hay perfiles" detail="Creá las cuentas del equipo en Supabase Auth y volvé a cargar para asignarles un rol."/>}
+      return <tr key={member.id}><td><strong>{member.full_name || "Sin nombre"}</strong><small className="admin-contact-details">{member.email || "Correo no disponible"}</small></td><td><span className={`role-badge role-${member.role}`}>{roleNames[member.role]}</span></td><td><select className="status-select" aria-label={`Cargo de ${member.full_name || member.email || "usuario"}`} value={member.role} disabled={isSelf || restrictedAdmin} onChange={(event) => onRoleChange(member, event.target.value as Role)}>{options.map((roleOption) => <option key={roleOption} value={roleOption}>{roleNames[roleOption]}</option>)}</select>{isSelf && <small className="admin-subline">Tu cuenta: cambio bloqueado</small>}{restrictedAdmin && <small className="admin-subline">Sólo el dueño puede modificar este cargo</small>}</td><td>{dateLabel(member.created_at)}</td></tr>;
+    })}</tbody></table></div> : <EmptyState title="Todavía no hay perfiles" detail="El Dueño puede invitar a la primera persona desde el formulario de arriba; el perfil aparecerá aquí al enviar la invitación."/>}
   </section>;
 }

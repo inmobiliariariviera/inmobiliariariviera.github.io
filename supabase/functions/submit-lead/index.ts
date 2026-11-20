@@ -1,5 +1,15 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
-import { getCorsHeaders, jsonResponse } from "../_shared/cors.ts";
+
+function getCorsHeaders(request: Request): HeadersInit | null {
+  const origin = request.headers.get("origin") ?? "";
+  const allowedOrigins = (Deno.env.get("ALLOWED_ORIGINS") ?? "").split(",").map((value) => value.trim()).filter(Boolean);
+  if (!origin || !allowedOrigins.includes(origin)) return null;
+  return { "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Max-Age": "86400", "Vary": "Origin" };
+}
+
+function jsonResponse(body: Record<string, unknown>, status: number, corsHeaders: HeadersInit): Response {
+  return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } });
+}
 
 const MAX_BODY_BYTES = 12_000;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -47,11 +57,19 @@ Deno.serve(async (request) => {
     const message = typeof body.message === "string" ? body.message.trim() : "";
     const propertyId = typeof body.property_id === "string" ? body.property_id.trim() : "";
     const turnstileToken = typeof body.turnstile_token === "string" ? body.turnstile_token.trim() : "";
+    const contactConsent = body.contact_consent === true;
+    const website = typeof body.website === "string" ? body.website.trim() : "";
+    // Compatibilidad transitoria con el formulario de ficha del sitio ya publicado.
+    const consentRequired = !propertyId || contactConsent;
+
+    // Campo trampa para bots: responder sin guardar datos ni revelar el mecanismo.
+    if (website) return jsonResponse({ success: true }, 200, cors);
 
     if (name.length < 2 || name.length > 120 || message.length < 3 || message.length > 4000
       || email.length > 320 || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-      || phone.length > 80 || !UUID_RE.test(propertyId) || !turnstileToken) {
-      return jsonResponse({ error: "Revisá los datos e intentá nuevamente." }, 400, cors);
+      || phone.length > 80 || (propertyId && !UUID_RE.test(propertyId)) || !turnstileToken
+      || (consentRequired && (!contactConsent || (!email && !phone)))) {
+      return jsonResponse({ error: "Revisá los datos, autorizá el contacto e ingresá al menos un medio de contacto." }, 400, cors);
     }
 
     const ip = clientIp(request);
@@ -84,13 +102,15 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: "No se pudo validar el desafío. Intentá nuevamente." }, 403, cors);
     }
 
-    const { data: property, error: propertyError } = await admin
-      .from("properties")
-      .select("id")
-      .eq("id", propertyId)
-      .in("status", ["published", "sold", "rented"])
-      .maybeSingle();
-    if (propertyError || !property) return jsonResponse({ error: "La propiedad ya no está disponible." }, 400, cors);
+    if (propertyId) {
+      const { data: property, error: propertyError } = await admin
+        .from("properties")
+        .select("id")
+        .eq("id", propertyId)
+        .in("status", ["published", "sold", "rented"])
+        .maybeSingle();
+      if (propertyError || !property) return jsonResponse({ error: "La propiedad ya no está disponible." }, 400, cors);
+    }
 
     const { data: allowed, error: limitError } = await admin.rpc("consume_lead_submission_limit", {
       p_key: rateKey,
@@ -108,7 +128,8 @@ Deno.serve(async (request) => {
       email: email || null,
       phone: phone || null,
       message,
-      property_id: propertyId,
+      property_id: propertyId || null,
+      contact_consent: contactConsent,
       source: "website",
       stage: "new",
       assigned_to: null,
