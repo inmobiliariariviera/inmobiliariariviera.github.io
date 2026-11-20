@@ -1,0 +1,1 @@
+{"routes":[{"path":"/#/","title":"Propiedades en Traslasierra"},{"path":"/#/propiedad/:slug","title":"Ficha de propiedad"},{"path":"/#/publicar","title":"Publicar una propiedad"},{"path":"/#/admin","title":"Panel de administración"},{"path":"/#/404","title":"Página no encontrada"}]}

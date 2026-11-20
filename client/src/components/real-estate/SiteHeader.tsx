@@ -118,6 +118,16 @@ export default function SiteHeader() {
     navigate("/");
   };
 
+  const goToSection = (sectionId: string, storageKey: string) => {
+    closeMenus();
+    if (location === "/") {
+      document.getElementById(sectionId)?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+      return;
+    }
+    try { sessionStorage.setItem(storageKey, "1"); } catch { /* storage can be disabled */ }
+    navigate("/");
+  };
+
   const submitSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const value = headerSearch.trim();
@@ -175,6 +185,7 @@ export default function SiteHeader() {
         <nav ref={headerNavRef} className={`header-nav ${menuOpen ? "is-open" : ""}`} aria-label="Navegación principal">
           {renderOperationMenu("venta", "Comprar")}
           {renderOperationMenu("alquiler", "Alquilar")}
+          <button className="header-section-link" type="button" onClick={() => goToSection("resenas", "portal-scroll-to-reviews")} onMouseMove={updateGlow}>Reseñas</button>
           <a className="header-sell-link" href={createWhatsAppUrl("Hola, quiero vender una propiedad.")} target="_blank" rel="noopener noreferrer" onClick={closeMenus} onMouseMove={updateGlow}>Vender</a>
           <button className="header-contact-toggle" type="button" onClick={goToContact} onMouseMove={updateGlow}>Contacto</button>
         </nav>

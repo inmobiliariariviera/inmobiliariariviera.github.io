@@ -24,6 +24,8 @@ export type Property = {
   status?: PropertyStatus;
 };
 
+const assetPath = (path: string) => `${import.meta.env.BASE_URL}${path.replace(/^\/+/, "")}`;
+
 export const properties: Property[] = [
   {
     slug: "campo-loma-bola-san-javier",
@@ -40,7 +42,11 @@ export const properties: Property[] = [
     features: ["Agua de riego", "Arroyo", "Acceso de ripio"],
     description:
       "Aviso de demostración para mostrar cómo se vería una publicación rural en el portal. La ubicación, el precio y las características son ilustrativos y deben reemplazarse por los datos confirmados de la inmobiliaria.",
-    images: [],
+    images: [
+      assetPath("property-images/campo-sierra.jpg"),
+      assetPath("property-images/campo-valle.jpg"),
+      assetPath("property-images/vista-rural.jpg"),
+    ],
     demo: true,
   },
   {
@@ -61,7 +67,7 @@ export const properties: Property[] = [
     features: ["Galería", "Parque arbolado", "Servicios"],
     description:
       "Ficha ilustrativa de una casa rural. Los datos no representan una propiedad real ni están disponibles para visita.",
-    images: [],
+    images: [assetPath("property-images/casa-pradera.jpeg")],
     demo: true,
   },
   {
@@ -79,7 +85,7 @@ export const properties: Property[] = [
     features: ["Vista a las sierras", "Arboleda", "Entorno tranquilo"],
     description:
       "Publicación de muestra para presentar terrenos dentro del catálogo. Confirmar superficie, documentación y servicios antes de publicar un aviso real.",
-    images: [],
+    images: [assetPath("property-images/huerta-casa.jpeg")],
     demo: true,
   },
   {
@@ -101,7 +107,7 @@ export const properties: Property[] = [
     features: ["Patio", "Dos dormitorios", "Entorno rural"],
     description:
       "Ejemplo de aviso de alquiler mensual. El monto, el plazo y los datos de ubicación son ilustrativos y deben reemplazarse por información real antes de publicar.",
-    images: [],
+    images: [assetPath("property-images/casa-alquiler.jpeg")],
     demo: true,
   },
 ];

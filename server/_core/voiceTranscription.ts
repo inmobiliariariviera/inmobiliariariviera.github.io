@@ -79,14 +79,14 @@ export async function transcribeAudio(
       return {
         error: "Voice transcription service is not configured",
         code: "SERVICE_ERROR",
-        details: "APP_API_URL is not set"
+        details: "MANUS_API_URL is not set"
       };
     }
     if (!ENV.forgeApiKey) {
       return {
         error: "Voice transcription service authentication is missing",
         code: "SERVICE_ERROR",
-        details: "APP_API_KEY is not set"
+        details: "MANUS_API_KEY is not set"
       };
     }
 

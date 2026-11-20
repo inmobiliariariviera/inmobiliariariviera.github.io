@@ -19,7 +19,7 @@
     "server/auth.logout.test.ts"
   ],
   "source": {
-    "repository": "app-ai/app-sandbox",
+    "repository": "manus-ai/manus-sandbox",
     "commit": "96caae59caace79529e4b3c3a32234cddd3e8411",
     "path": "sandbox/templates/web-dev-templates/templates/web-db-user"
   }

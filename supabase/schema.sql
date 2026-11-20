@@ -142,17 +142,6 @@ create table if not exists public.leads (
 );
 create index if not exists leads_stage_created_idx on public.leads(stage, created_at desc);
 
-create table if not exists public.reviews (
-  id uuid primary key default gen_random_uuid(),
-  author_name text not null check (length(trim(author_name)) between 2 and 100),
-  rating integer not null check (rating between 1 and 5),
-  comment text not null check (length(trim(comment)) between 10 and 1200),
-  is_approved boolean not null default false,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-create index if not exists reviews_public_created_idx on public.reviews(is_approved, created_at desc);
-
 -- Rate limiting para la Edge Function pública. Sólo almacena hashes HMAC de IP,
 -- nunca direcciones IP en claro, y no puede consultarse desde el navegador.
 create table if not exists public.lead_submission_limits (
@@ -244,9 +233,6 @@ for each row execute procedure public.touch_updated_at();
 drop trigger if exists follow_ups_touch_updated_at on public.follow_ups;
 create trigger follow_ups_touch_updated_at before update on public.follow_ups
 for each row execute procedure public.touch_updated_at();
-drop trigger if exists reviews_touch_updated_at on public.reviews;
-create trigger reviews_touch_updated_at before update on public.reviews
-for each row execute procedure public.touch_updated_at();
 
 create or replace function public.write_audit_log()
 returns trigger language plpgsql security definer set search_path = '' as $$
@@ -284,9 +270,6 @@ for each row execute procedure public.write_audit_log();
 drop trigger if exists follow_ups_audit on public.follow_ups;
 create trigger follow_ups_audit after insert or update or delete on public.follow_ups
 for each row execute procedure public.write_audit_log();
-drop trigger if exists reviews_audit on public.reviews;
-create trigger reviews_audit after insert or update or delete on public.reviews
-for each row execute procedure public.write_audit_log();
 drop trigger if exists profiles_audit on public.profiles;
 create trigger profiles_audit after insert or update or delete on public.profiles
 for each row execute procedure public.write_audit_log();
@@ -296,7 +279,6 @@ alter table public.properties enable row level security;
 alter table public.leads enable row level security;
 alter table public.follow_ups enable row level security;
 alter table public.audit_logs enable row level security;
-alter table public.reviews enable row level security;
 
 drop policy if exists "profiles_read_self_or_admin" on public.profiles;
 create policy "profiles_read_self_or_admin" on public.profiles for select to authenticated
@@ -314,19 +296,6 @@ create policy "properties_staff_update" on public.properties for update to authe
 using (public.can_manage_properties()) with check (public.can_manage_properties());
 drop policy if exists "properties_staff_delete" on public.properties;
 create policy "properties_staff_delete" on public.properties for delete to authenticated
-using (public.is_admin());
-
-drop policy if exists "reviews_public_read_approved" on public.reviews;
-create policy "reviews_public_read_approved" on public.reviews for select to anon, authenticated
-using (is_approved or public.is_staff());
-drop policy if exists "reviews_public_insert_pending" on public.reviews;
-create policy "reviews_public_insert_pending" on public.reviews for insert to anon, authenticated
-with check (is_approved = false);
-drop policy if exists "reviews_staff_update" on public.reviews;
-create policy "reviews_staff_update" on public.reviews for update to authenticated
-using (public.is_staff()) with check (public.is_staff());
-drop policy if exists "reviews_admin_delete" on public.reviews;
-create policy "reviews_admin_delete" on public.reviews for delete to authenticated
 using (public.is_admin());
 
 drop policy if exists "leads_public_insert" on public.leads;
@@ -363,8 +332,6 @@ grant insert on public.leads to authenticated;
 grant select, update, delete on public.leads to authenticated;
 grant select, insert, update, delete on public.follow_ups to authenticated;
 grant select on public.audit_logs to authenticated;
-grant select, insert on public.reviews to anon, authenticated;
-grant update, delete on public.reviews to authenticated;
 
 -- Las imágenes nuevas viven en un bucket privado. Las fichas públicas reciben
 -- URLs firmadas sólo si la propiedad está publicada/vendida/alquilada.
@@ -373,9 +340,8 @@ set images = (
   select pg_catalog.array_agg(
     case when pg_catalog.strpos(u.image, '/storage/v1/object/public/property-images/') > 0 then
       pg_catalog.split_part(
-        pg_catalog.substr(
-          u.image,
-          pg_catalog.strpos(u.image, '/storage/v1/object/public/property-images/')
+        pg_catalog.substring(
+          u.image from pg_catalog.strpos(u.image, '/storage/v1/object/public/property-images/')
           + pg_catalog.length('/storage/v1/object/public/property-images/')
         ), '?', 1
       )
@@ -421,8 +387,3 @@ using (
 -- insert into public.profiles (id, email, full_name, role)
 -- select id, email, 'Dueño', 'owner' from auth.users where email = 'dueno@tu-dominio.com'
 -- on conflict (id) do update set role = excluded.role, email = excluded.email;
-
--- La ampliación operativa del CRM se mantiene como migración versionada en
--- supabase/migrations/202611200001_crm_operativo.sql. Aplicarla después del
--- esquema base para agregar segmentación declarada, eventos, bienvenida, FAQ,
--- calculadora, finanzas y alertas de 90 días sin eliminar propiedades.

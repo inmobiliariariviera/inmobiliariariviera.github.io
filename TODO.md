@@ -1,5 +1,13 @@
 
 
+## Mejoras RIVIERA implementadas
+- [x] El catálogo público limita las localidades a Traslasierra, Córdoba; se eliminaron las ubicaciones externas del selector, normalizador y pruebas.
+- [x] El header público incorpora “Reseñas” con navegación suave desde otras rutas; Home incorpora reseñas aprobadas desde Supabase, estado vacío honesto y FAQ con respuestas cálidas e informativas.
+- [x] El panel administrativo ofrece “Ver página pública” y el editor de propiedades muestra una vista previa lateral en tiempo real de título, ubicación, precio, superficie, características, descripción e imágenes locales.
+- [x] El guardado de propiedades valida números finitos, genera slugs únicos, confirma la fila afectada con `select`, conserva rutas HTTPS/privadas y traduce errores frecuentes de RLS, Storage, perfiles y constraints.
+- [x] La ficha de propiedad incorpora una calculadora orientativa con comisión, otros gastos, desglose visible, importe neto y supuestos explícitos.
+- [x] Se agregaron estilos editoriales índigo/dorado y reglas responsive para Reseñas, FAQ, calculadora, preview lateral, header y botón/enlace de navegación.
+
 ## Seguridad, publicación y validación
 - [x] El formulario público de consultas usa una Edge Function con validación del lado servidor, Turnstile, límite de 5 envíos por 15 minutos por hash HMAC de IP y campos CRM controlados por el servidor.
 - [x] El bucket `property-images` pasa a privado; el frontend sólo recibe URLs firmadas temporales para avisos activos y el panel usa firmas para personal autenticado.
@@ -9,16 +17,3 @@
 - [x] La auditoría completa conserva el aviso alto GHSA-fc5q-39xc-vjpf en `picomatch` por la cadena Vite/Vitest de desarrollo; el advisory no lista parche. CI permite sólo ese hallazgo exacto y bloquea otros avisos.
 - [x] `pnpm check`, 22 pruebas y `pnpm build:static` completados. Las Edge Functions pasaron transpilación sintáctica con esbuild; no se desplegaron a una cuenta real.
 - [ ] Aplicar el SQL actualizado, configurar secretos de Supabase y variables públicas de GitHub, registrar dominios Turnstile y desplegar las dos Edge Functions antes de publicar el nuevo frontend.
-
-
-## CRM inmobiliario y control operativo
-- [ ] El panel privado conserva el acceso por Supabase Auth y agrega un embudo comercial con etapas, métricas de conversión, origen, propiedad, período y recomendaciones basadas en tiempos de respuesta y caídas por etapa.
-- [ ] Los contactos permiten registrar presupuesto declarado, moneda, modalidad de pago, operación, interés, urgencia, zona, etiquetas, prioridad y consentimiento; la segmentación usa datos comerciales proporcionados y no infiere nivel socioeconómico sensible.
-- [ ] Cada nuevo contacto puede generar un seguimiento y una plantilla de bienvenida; el sistema deja preparado el envío desacoplado para email/WhatsApp sin exponer credenciales en el frontend.
-- [ ] El panel incluye una biblioteca de preguntas frecuentes editable, buscable y reutilizable desde la gestión de contactos, con registro de respuestas utilizadas.
-- [ ] El editor de propiedades muestra una vista previa en vivo de la ficha mientras se cargan campos e imágenes, sin publicar ni subir hasta guardar.
-- [ ] El panel incorpora una calculadora interna de precio, comisión, gastos, pago al dueño, margen porcentual y ganancia neta, con opción de asociar y guardar el cálculo.
-- [ ] El panel incorpora ingresos, salidas, pagos a dueños, comisión y ganancia de Riviera; cada movimiento tiene estado pendiente/realizado/anulado, color visible, notas, fecha y auditoría protegida.
-- [ ] Cada propiedad publicada conserva fecha de publicación y muestra una alerta al cumplir 90 días; la propiedad no se elimina automáticamente y la alerta puede convertirse en seguimiento.
-- [ ] Las migraciones Supabase son idempotentes, tienen RLS por rol, índices y auditoría append-only; se validan en el proyecto `vejljxoxhlseyzoxbedb` antes de publicar.
-- [ ] El build, las pruebas y la publicación de GitHub Pages se completan sin romper el catálogo público, las reseñas ni el menú móvil.

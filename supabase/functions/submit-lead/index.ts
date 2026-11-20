@@ -1,15 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
-
-function getCorsHeaders(request: Request): HeadersInit | null {
-  const origin = request.headers.get("origin") ?? "";
-  const allowedOrigins = (Deno.env.get("ALLOWED_ORIGINS") ?? "").split(",").map((value) => value.trim()).filter(Boolean);
-  if (!origin || !allowedOrigins.includes(origin)) return null;
-  return { "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Max-Age": "86400", "Vary": "Origin" };
-}
-
-function jsonResponse(body: Record<string, unknown>, status: number, corsHeaders: HeadersInit): Response {
-  return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" } });
-}
+import { getCorsHeaders, jsonResponse } from "../_shared/cors.ts";
 
 const MAX_BODY_BYTES = 12_000;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -57,19 +47,11 @@ Deno.serve(async (request) => {
     const message = typeof body.message === "string" ? body.message.trim() : "";
     const propertyId = typeof body.property_id === "string" ? body.property_id.trim() : "";
     const turnstileToken = typeof body.turnstile_token === "string" ? body.turnstile_token.trim() : "";
-    const contactConsent = body.contact_consent === true;
-    const website = typeof body.website === "string" ? body.website.trim() : "";
-    // Compatibilidad transitoria con el formulario de ficha del sitio ya publicado.
-    const consentRequired = !propertyId || contactConsent;
-
-    // Campo trampa para bots: responder sin guardar datos ni revelar el mecanismo.
-    if (website) return jsonResponse({ success: true }, 200, cors);
 
     if (name.length < 2 || name.length > 120 || message.length < 3 || message.length > 4000
       || email.length > 320 || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-      || phone.length > 80 || (propertyId && !UUID_RE.test(propertyId)) || !turnstileToken
-      || (consentRequired && (!contactConsent || (!email && !phone)))) {
-      return jsonResponse({ error: "Revisá los datos, autorizá el contacto e ingresá al menos un medio de contacto." }, 400, cors);
+      || phone.length > 80 || !UUID_RE.test(propertyId) || !turnstileToken) {
+      return jsonResponse({ error: "Revisá los datos e intentá nuevamente." }, 400, cors);
     }
 
     const ip = clientIp(request);
@@ -102,15 +84,13 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: "No se pudo validar el desafío. Intentá nuevamente." }, 403, cors);
     }
 
-    if (propertyId) {
-      const { data: property, error: propertyError } = await admin
-        .from("properties")
-        .select("id")
-        .eq("id", propertyId)
-        .in("status", ["published", "sold", "rented"])
-        .maybeSingle();
-      if (propertyError || !property) return jsonResponse({ error: "La propiedad ya no está disponible." }, 400, cors);
-    }
+    const { data: property, error: propertyError } = await admin
+      .from("properties")
+      .select("id")
+      .eq("id", propertyId)
+      .in("status", ["published", "sold", "rented"])
+      .maybeSingle();
+    if (propertyError || !property) return jsonResponse({ error: "La propiedad ya no está disponible." }, 400, cors);
 
     const { data: allowed, error: limitError } = await admin.rpc("consume_lead_submission_limit", {
       p_key: rateKey,
@@ -123,31 +103,21 @@ Deno.serve(async (request) => {
     }
     if (allowed !== true) return jsonResponse({ error: "Alcanzaste el límite de consultas. Probá más tarde." }, 429, cors);
 
-    const { data: lead, error: insertError } = await admin.from("leads").insert({
+    const { error: insertError } = await admin.from("leads").insert({
       name,
       email: email || null,
       phone: phone || null,
       message,
-      property_id: propertyId || null,
-      contact_consent: contactConsent,
+      property_id: propertyId,
       source: "website",
       stage: "new",
       assigned_to: null,
       created_by: null,
-    }).select("id").single();
+    });
     if (insertError) {
       console.error("Lead insertion failed");
       return jsonResponse({ error: "No se pudo registrar la consulta. Probá nuevamente." }, 500, cors);
     }
-    const automationRows = [];
-    if (email) automationRows.push({ lead_id: lead.id, channel: "email", template_key: "welcome_inquiry", status: "queued" });
-    if (phone) automationRows.push({ lead_id: lead.id, channel: "whatsapp", template_key: "welcome_inquiry", status: "queued" });
-    if (automationRows.length) {
-      const { error: automationError } = await admin.from("welcome_automations").upsert(automationRows, { onConflict: "lead_id,channel,template_key", ignoreDuplicates: true });
-      if (automationError) console.error("Welcome automation queue failed");
-    }
-    const { error: eventError } = await admin.from("lead_events").insert({ lead_id: lead.id, event_type: "welcome_queued", note: "Consulta recibida desde la web; bienvenida preparada para el canal disponible." });
-    if (eventError) console.error("Lead event creation failed");
     return jsonResponse({ success: true }, 200, cors);
   } catch (error) {
     console.error("Public lead function failed", error instanceof Error ? error.message : "Unknown error");
