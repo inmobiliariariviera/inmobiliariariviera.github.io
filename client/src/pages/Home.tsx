@@ -69,7 +69,7 @@ export default function Home() {
             <p>Explorá campos, casas y terrenos con información clara para dar el próximo paso.</p>
           </div>
           <div className="hero-visual" aria-hidden="true">
-            <img src={`${import.meta.env.BASE_URL}property-images/vista-rural.jpg`} alt="" />
+            <div className="hero-visual-art"><span className="hero-art-sun"/><span className="hero-art-ridge hero-art-ridge-back"/><span className="hero-art-ridge hero-art-ridge-front"/></div>
             <div className="hero-visual-label"><strong>El paisaje también es parte de tu hogar.</strong></div>
           </div>
         </section>
