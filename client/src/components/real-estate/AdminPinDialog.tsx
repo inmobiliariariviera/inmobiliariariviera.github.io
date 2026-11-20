@@ -8,7 +8,7 @@ type Props = {
   description: string;
   actionLabel: string;
   onCancel: () => void;
-  onAuthorized: () => Promise<void>;
+  onAuthorized: (pin: string) => Promise<void>;
 };
 
 export default function AdminPinDialog({ title, description, actionLabel, onCancel, onAuthorized }: Props) {
@@ -21,7 +21,7 @@ export default function AdminPinDialog({ title, description, actionLabel, onCanc
     const { data, error } = await supabase.rpc("verify_profit_pin", { p_pin: pin });
     if (error) toast.error(`No se pudo validar la contraseña: ${error.message}`);
     else if (data === true) {
-      try { await onAuthorized(); onCancel(); }
+      try { await onAuthorized(pin); onCancel(); }
       catch (actionError) { toast.error(actionError instanceof Error ? actionError.message : "No se pudo completar la operación."); }
     } else toast.error("Contraseña incorrecta o acceso temporalmente bloqueado.");
     setPin("");

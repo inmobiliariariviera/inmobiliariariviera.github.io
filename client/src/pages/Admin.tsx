@@ -100,7 +100,7 @@ export default function Admin() {
   const [registerName, setRegisterName] = useState("");
   const [authMode, setAuthMode] = useState<"sign_in" | "sign_up">("sign_in");
   const [loggingIn, setLoggingIn] = useState(false);
-  const [pendingPinAction, setPendingPinAction] = useState<null | { title: string; description: string; actionLabel: string; run: () => Promise<void> }>(null);
+  const [pendingPinAction, setPendingPinAction] = useState<null | { title: string; description: string; actionLabel: string; run: (pin: string) => Promise<void> }>(null);
 
   useEffect(() => {
     if (!supabase) { setAuthLoading(false); return; }
@@ -397,6 +397,31 @@ export default function Admin() {
     else toast.success(`Cargo actualizado: ${roleNames[nextRole]}`);
     await loadWorkspace();
   };
+  const deleteTeamMember = (member: TeamRow) => {
+    if (!supabase || !isAdmin || member.id === session?.user.id || member.role === "owner" || (role === "admin" && member.role === "admin")) return;
+    const memberLabel = member.full_name || member.email || "esta cuenta";
+    const typed = window.prompt(`ELIMINACIÓN DEFINITIVA\n\nSe borrará la cuenta de ${memberLabel} de Supabase Auth y del equipo. Las propiedades, consultas, seguimientos y movimientos se conservarán; las asignaciones al usuario se desvincularán y la auditoría conservará el historial.\n\nEscribí BORRAR CUENTA para continuar.`);
+    if (typed !== "BORRAR CUENTA") { if (typed !== null) toast.error("No coincidió el texto de confirmación; no se eliminó la cuenta."); return; }
+    setPendingPinAction({
+      title: "Eliminar cuenta definitivamente",
+      description: `Se eliminará permanentemente la cuenta de ${memberLabel}. No se borrarán sus registros operativos, pero se quitarán sus asignaciones. Esta acción no se puede deshacer. Confirmá con la clave administrativa.`,
+      actionLabel: "Borrar cuenta",
+      run: async (pin) => {
+        const { data, error } = await supabase!.functions.invoke("delete-team-member", { body: { target_user_id: member.id, pin } });
+        if (error) {
+          let message = error.message;
+          if (error.context instanceof Response) {
+            try { const response = await error.context.clone().json() as { error?: string }; if (response.error) message = response.error; } catch { /* Keep the original function error. */ }
+          }
+          throw new Error(message);
+        }
+        if (!data?.ok) throw new Error(data?.error ?? "No se pudo eliminar la cuenta.");
+        if (data.audit_warning) toast.warning("La cuenta se eliminó, pero revisá la auditoría: no se pudo actualizar el autor del evento.");
+        else toast.success(`Cuenta de ${memberLabel} eliminada definitivamente; el historial operativo se conservó.`);
+        await loadWorkspace();
+      },
+    });
+  };
 
   if (!isSupabaseConfigured || !supabase) return <SetupMessage />;
   if (authLoading) return <AdminLoading />;
@@ -451,7 +476,7 @@ export default function Admin() {
               </details>;
             })}</div> : <EmptyState title="Todavía no hay actividad" detail="Las altas, ediciones y eliminaciones registradas aparecerán aquí con antes y después en formato de texto."/>}
           </section>}
-          {tab === "team" && canManageTeam && <TeamManager team={team} currentUserId={session.user.id} currentRole={role} onRoleChange={changeTeamRole} onRefresh={loadWorkspace} />}
+          {tab === "team" && canManageTeam && <TeamManager team={team} currentUserId={session.user.id} currentRole={role} onRoleChange={changeTeamRole} onDelete={deleteTeamMember} onRefresh={loadWorkspace} />}
         </section>
       </main>
       {pendingPinAction && <AdminPinDialog title={pendingPinAction.title} description={pendingPinAction.description} actionLabel={pendingPinAction.actionLabel} onAuthorized={pendingPinAction.run} onCancel={() => setPendingPinAction(null)} />}
@@ -629,7 +654,7 @@ function TeamInviteForm({ roles, onInvited }: { roles: Role[]; onInvited: () => 
   return <section className="team-invite-card"><div><h3>Invitar una persona al equipo</h3><p>Supabase enviará un enlace de acceso; no ingreses ni compartas contraseñas ajenas.</p></div><form className="team-invite-form" onSubmit={(event) => void invite(event)}><label>Nombre completo<input required minLength={2} maxLength={120} autoComplete="name" value={fullName} onChange={(event) => setFullName(event.target.value)} placeholder="Nombre y apellido" /></label><label>Correo electrónico<input required type="email" maxLength={254} autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="persona@ejemplo.com" /></label><label>Cargo<select value={role} onChange={(event) => setRole(event.target.value as Role)}>{roles.map((item) => <option key={item} value={item}>{roleNames[item]}</option>)}</select></label><button className="admin-primary-button" type="submit" disabled={sending}>{sending ? <LoaderCircle className="spin" size={16}/> : <Mail size={16}/>} {sending ? "Enviando invitación…" : "Invitar y asignar cargo"}</button></form></section>;
 }
 
-function TeamManager({ team, currentUserId, currentRole, onRoleChange, onRefresh }: { team: TeamRow[]; currentUserId: string; currentRole: Role; onRoleChange: (member: TeamRow, role: Role) => void; onRefresh: () => Promise<void> }) {
+function TeamManager({ team, currentUserId, currentRole, onRoleChange, onDelete, onRefresh }: { team: TeamRow[]; currentUserId: string; currentRole: Role; onRoleChange: (member: TeamRow, role: Role) => void; onDelete: (member: TeamRow) => void; onRefresh: () => Promise<void> }) {
   const allRoles: Role[] = ["owner", "admin", "manager", "secretary", "user"];
   const availableRoles = currentRole === "owner" ? allRoles : ["manager", "secretary", "user"] as Role[];
   const permissions: { role: Role; detail: string }[] = [
@@ -640,15 +665,17 @@ function TeamManager({ team, currentUserId, currentRole, onRoleChange, onRefresh
     { role: "user", detail: "Cuenta registrada sin permisos del panel hasta que el Dueño o Administrador le asigne un cargo." },
   ];
   return <section className="admin-panel-card">
-    <div className="admin-panel-heading"><div><h2>Equipo y permisos</h2><p>Asigná el cargo adecuado a cada cuenta. Los cambios se registran en auditoría.</p></div><span className="admin-count-pill">{team.length} cuentas</span></div>
+    <div className="admin-panel-heading"><div><h2>Equipo y permisos</h2><p>Asigná cargos o eliminá permanentemente cuentas que ya no pertenezcan a la empresa. Las acciones se registran en auditoría.</p></div><span className="admin-count-pill">{team.length} cuentas</span></div>
     <div className="team-security-note"><ShieldCheck size={16}/><span>Las contraseñas no se comparten ni se almacenan en el panel. El Dueño invita por correo y asigna el cargo; cada persona define su propia contraseña desde el enlace seguro de Supabase. Nadie puede cambiar su propio cargo; un administrador no puede crear ni modificar dueños/administradores.</span></div>
     {currentRole === "owner" && <TeamInviteForm roles={allRoles} onInvited={onRefresh} />}
     <div className="role-permission-grid">{permissions.map(({ role: permissionRole, detail }) => <article className="role-permission-card" key={permissionRole}><span className={`role-badge role-${permissionRole}`}>{roleNames[permissionRole]}</span><p>{detail}</p></article>)}</div>
-    {team.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Persona</th><th>Acceso actual</th><th>Modificar cargo</th><th>Alta</th></tr></thead><tbody>{team.map((member) => {
+    {team.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Persona</th><th>Acceso actual</th><th>Modificar cargo</th><th>Alta</th><th>Eliminar acceso</th></tr></thead><tbody>{team.map((member) => {
       const restrictedAdmin = currentRole === "admin" && ["owner", "admin"].includes(member.role);
       const options = availableRoles.includes(member.role) ? availableRoles : [member.role, ...availableRoles];
       const isSelf = member.id === currentUserId;
-      return <tr key={member.id}><td><strong>{member.full_name || "Sin nombre"}</strong><small className="admin-contact-details">{member.email || "Correo no disponible"}</small></td><td><span className={`role-badge role-${member.role}`}>{roleNames[member.role]}</span></td><td><select className="status-select" aria-label={`Cargo de ${member.full_name || member.email || "usuario"}`} value={member.role} disabled={isSelf || restrictedAdmin} onChange={(event) => onRoleChange(member, event.target.value as Role)}>{options.map((roleOption) => <option key={roleOption} value={roleOption}>{roleNames[roleOption]}</option>)}</select>{isSelf && <small className="admin-subline">Tu cuenta: cambio bloqueado</small>}{restrictedAdmin && <small className="admin-subline">Sólo el dueño puede modificar este cargo</small>}</td><td>{dateLabel(member.created_at)}</td></tr>;
+      const deleteBlocked = isSelf || member.role === "owner" || (currentRole === "admin" && member.role === "admin");
+      const deleteReason = isSelf ? "No podés eliminar tu propia cuenta" : member.role === "owner" ? "La cuenta Dueño está protegida" : currentRole === "admin" && member.role === "admin" ? "Sólo el Dueño puede eliminar administradores" : `Eliminar definitivamente la cuenta de ${member.full_name || member.email || "esta persona"}`;
+      return <tr key={member.id}><td><strong>{member.full_name || "Sin nombre"}</strong><small className="admin-contact-details">{member.email || "Correo no disponible"}</small></td><td><span className={`role-badge role-${member.role}`}>{roleNames[member.role]}</span></td><td><select className="status-select" aria-label={`Cargo de ${member.full_name || member.email || "usuario"}`} value={member.role} disabled={isSelf || restrictedAdmin} onChange={(event) => onRoleChange(member, event.target.value as Role)}>{options.map((roleOption) => <option key={roleOption} value={roleOption}>{roleNames[roleOption]}</option>)}</select>{isSelf && <small className="admin-subline">Tu cuenta: cambio bloqueado</small>}{restrictedAdmin && <small className="admin-subline">Sólo el dueño puede modificar este cargo</small>}</td><td>{dateLabel(member.created_at)}</td><td><button type="button" className="admin-row-delete" aria-label={deleteReason} title={deleteReason} disabled={deleteBlocked} onClick={() => onDelete(member)}><Trash2 size={16}/></button>{deleteBlocked && <small className="admin-subline">{deleteReason}</small>}</td></tr>;
     })}</tbody></table></div> : <EmptyState title="Todavía no hay perfiles" detail="El Dueño puede invitar a la primera persona desde el formulario de arriba; el perfil aparecerá aquí al enviar la invitación."/>}
   </section>;
 }
