@@ -112,7 +112,7 @@ export default function Home() {
           <div className="contact-actions">
             <a className="contact-action contact-action-whatsapp" href={createWhatsAppUrl("Hola, quiero hacer una consulta inmobiliaria.")} target="_blank" rel="noopener noreferrer"><WhatsAppIcon size={19}/><span><strong>WhatsApp</strong><small>{BUSINESS_PHONE_DISPLAY}</small></span><ArrowRight size={16}/></a>
             <a className="contact-action contact-action-instagram" href={INSTAGRAM_PROFILE_URL} target="_blank" rel="noopener noreferrer"><Instagram size={19}/><span><strong>Instagram</strong><small>@inmobiliaria.riviera</small></span><ArrowRight size={16}/></a>
-            <a className="contact-action contact-action-youtube" href={YOUTUBE_CHANNEL_URL} target="_blank" rel="noopener noreferrer"><Youtube size={19}/><span><strong>YouTube</strong><small>Inmobiliaria.Riviera</small></span><ArrowRight size={16}/></a>
+            <a className="contact-action contact-action-youtube" href={YOUTUBE_CHANNEL_URL} target="_blank" rel="noopener noreferrer"><Youtube size={19}/><span><strong>YouTube</strong><small>@inmobiliaria.riviera</small></span><ArrowRight size={16}/></a>
             <a className="contact-action contact-action-facebook" href={createFacebookShareUrl()} target="_blank" rel="noopener noreferrer" title="Compartir el portal en Facebook"><Facebook size={19}/><span><strong>Facebook</strong><small>Compartí el portal</small></span><ArrowRight size={16}/></a>
           </div>
         </section>

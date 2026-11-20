@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import OperationsPanel from "@/components/real-estate/OperationsPanel";
+import AdminPinDialog from "@/components/real-estate/AdminPinDialog";
 import { formatPrice, type PropertyStatus } from "@/data/properties";
 import { isSupabaseConfigured, supabase, type PropertyRow } from "@/lib/supabase";
 
@@ -22,7 +23,7 @@ type FollowUpRow = {
   lead_id: string | null; property_id: string | null; created_at: string;
 };
 type AuditRow = {
-  id: number; actor_id: string | null; action: string; entity_table: string; entity_id: string;
+  id: number; actor_id: string | null; actor_name?: string | null; actor_email?: string | null; action: string; entity_table: string; entity_id: string;
   old_values: Record<string, unknown> | null; new_values: Record<string, unknown> | null; created_at: string;
 };
 type TeamRow = { id: string; email: string | null; full_name: string | null; role: Role; created_at: string };
@@ -94,7 +95,10 @@ export default function Admin() {
   const [leadDraft, setLeadDraft] = useState({ name: "", email: "", phone: "", message: "", budget_max: "", budget_currency: "USD" as "USD" | "ARS", financing: "to_define", urgency: "medium", preferred_operation: "", preferred_zone: "", priority: "normal" as "high" | "normal" | "low", tags: "" });
   const [taskDraft, setTaskDraft] = useState({ title: "", notes: "", due_at: "", lead_id: "", property_id: "" });
   const [login, setLogin] = useState({ email: "", password: "" });
+  const [registerName, setRegisterName] = useState("");
+  const [authMode, setAuthMode] = useState<"sign_in" | "sign_up">("sign_in");
   const [loggingIn, setLoggingIn] = useState(false);
+  const [pendingPinAction, setPendingPinAction] = useState<null | { title: string; description: string; actionLabel: string; run: () => Promise<void> }>(null);
 
   useEffect(() => {
     if (!supabase) { setAuthLoading(false); return; }
@@ -173,7 +177,9 @@ export default function Admin() {
   const reviewDueProperties = properties.filter((item) => item.status === "published" && item.created_at && Date.now() - new Date(item.created_at).getTime() >= 90 * 86400000);
   const role = (profile?.role ?? "user") as Role;
   const isAdmin = role === "owner" || role === "admin";
-  const canManageProperties = ["owner", "admin", "manager"].includes(role);
+  useEffect(() => { if (!isAdmin && ["operations", "audit", "team"].includes(tab)) setTab("overview"); }, [isAdmin, tab]);
+  const canManageProperties = isAdmin;
+  const canCreateProperties = ["owner", "admin", "manager"].includes(role);
   const canDeleteRecords = isAdmin;
   const canManageTeam = isAdmin;
   const adminImageSource = (image?: string | null) => {
@@ -189,6 +195,27 @@ export default function Admin() {
     const { error } = await supabase.auth.signInWithPassword({ email: login.email.trim(), password: login.password });
     if (error) toast.error(`No se pudo iniciar sesión: ${error.message}`);
     else toast.success("Sesión iniciada");
+    setLoggingIn(false);
+  };
+  const registerAccount = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!supabase) return;
+    setLoggingIn(true);
+    const { data, error } = await supabase.auth.signUp({
+      email: login.email.trim(),
+      password: login.password,
+      options: { data: { full_name: registerName.trim() }, emailRedirectTo: `${window.location.origin}${window.location.pathname}#/admin` },
+    });
+    if (error) toast.error(`No se pudo registrar la cuenta: ${error.message}`);
+    else {
+      if (data.session) await supabase.auth.signOut();
+      toast.success(data.session
+        ? "Cuenta guardada en Supabase con rol ‘Sin acceso’. Un dueño o administrador debe habilitarla."
+        : "Solicitud creada en Supabase. Revisá el correo para confirmar la cuenta; luego un dueño o administrador deberá asignarle un rol.");
+      setLogin({ email: login.email, password: "" });
+      setRegisterName("");
+      setAuthMode("sign_in");
+    }
     setLoggingIn(false);
   };
   const signOut = async () => {
@@ -216,6 +243,8 @@ export default function Admin() {
   const saveProperty = async (event: FormEvent) => {
     event.preventDefault();
     if (!supabase || !session) return;
+    if (editingId && !isAdmin) { toast.error("Sólo dueño o administrador puede editar propiedades."); return; }
+    if (!editingId && !canCreateProperties) return;
     if (!propertyDraft.title.trim() || !propertyDraft.location.trim() || !propertyDraft.region.trim()) {
       toast.error("Completá título, localidad y región."); return;
     }
@@ -279,12 +308,12 @@ export default function Admin() {
     } finally { setSaving(false); }
   };
   const archiveProperty = async (row: PropertyRow) => {
-    if (!supabase || !window.confirm(`¿Archivar “${row.title}”? La propiedad se conservará y podrá reactivarse.`)) return;
+    if (!supabase || !isAdmin || !window.confirm(`¿Archivar “${row.title}”? La propiedad se conservará y podrá reactivarse.`)) return;
     const { error } = await supabase.from("properties").update({ status: "archived", archived_at: new Date().toISOString() }).eq("id", row.id);
     if (error) toast.error(error.message); else { toast.success("Propiedad archivada sin borrar su historial"); await loadWorkspace(); }
   };
   const setPropertyStatus = async (row: PropertyRow, status: PropertyStatus) => {
-    if (!supabase) return;
+    if (!supabase || !isAdmin) return;
     const operation = status === "sold" ? "Venta" : status === "rented" ? "Alquiler" : row.operation;
     const { error } = await supabase.from("properties").update({ status, operation, ...(status === "published" ? { published_at: new Date().toISOString() } : {}) }).eq("id", row.id);
     if (error) toast.error(error.message); else { toast.success(`Estado actualizado: ${statusNames[status]}`); await loadWorkspace(); }
@@ -296,6 +325,7 @@ export default function Admin() {
     if (error) toast.error(error.message); else { toast.success("Consulta agregada al CRM"); setLeadDraft({ name: "", email: "", phone: "", message: "", budget_max: "", budget_currency: "USD", financing: "to_define", urgency: "medium", preferred_operation: "", preferred_zone: "", priority: "normal", tags: "" }); await loadWorkspace(); }
   };
   const updateLeadStage = async (id: string, stage: string) => {
+    if (!isAdmin) return;
     const { error } = await supabase!.from("leads").update({ stage }).eq("id", id);
     if (error) toast.error(error.message); else { toast.success("Etapa actualizada"); await loadWorkspace(); }
   };
@@ -310,29 +340,52 @@ export default function Admin() {
     if (error) toast.error(error.message); else { toast.success("Seguimiento creado"); setTaskDraft({ title: "", notes: "", due_at: "", lead_id: "", property_id: "" }); await loadWorkspace(); }
   };
   const toggleFollowUp = async (task: FollowUpRow) => {
+    if (!isAdmin) return;
     const status = task.status === "done" ? "pending" : "done";
     const { error } = await supabase!.from("follow_ups").update({ status }).eq("id", task.id);
     if (error) toast.error(error.message); else { toast.success(status === "done" ? "Seguimiento completado" : "Seguimiento reabierto"); await loadWorkspace(); }
   };
   const deleteLead = async (lead: LeadRow) => {
     if (!supabase || !canDeleteRecords || !window.confirm(`¿Eliminar la consulta de ${lead.name}?`)) return;
-    const { error } = await supabase.from("leads").delete().eq("id", lead.id);
-    if (error) toast.error(error.message); else { toast.success("Consulta eliminada"); await loadWorkspace(); }
+    setPendingPinAction({ title: "Confirmar eliminación", description: `Se eliminará la consulta de ${lead.name} y sus eventos asociados. Confirmá con tu contraseña de administrador.`, actionLabel: "Eliminar consulta", run: async () => {
+      const { error } = await supabase!.from("leads").delete().eq("id", lead.id);
+      if (error) toast.error(error.message); else { toast.success("Consulta eliminada"); await loadWorkspace(); }
+    } });
   };
   const deleteFollowUp = async (task: FollowUpRow) => {
     if (!supabase || !canDeleteRecords || !window.confirm(`¿Eliminar el seguimiento “${task.title}”?`)) return;
-    const { error } = await supabase.from("follow_ups").delete().eq("id", task.id);
-    if (error) toast.error(error.message); else { toast.success("Seguimiento eliminado"); await loadWorkspace(); }
+    setPendingPinAction({ title: "Confirmar eliminación", description: `Se eliminará el seguimiento “${task.title}”. Confirmá con tu contraseña de administrador.`, actionLabel: "Eliminar seguimiento", run: async () => {
+      const { error } = await supabase!.from("follow_ups").delete().eq("id", task.id);
+      if (error) toast.error(error.message); else { toast.success("Seguimiento eliminado"); await loadWorkspace(); }
+    } });
   };
   const updateReview = async (review: ReviewRow, is_approved: boolean) => {
-    if (!supabase) return;
+    if (!supabase || !isAdmin) return;
     const { error } = await supabase.from("reviews").update({ is_approved }).eq("id", review.id);
     if (error) toast.error(error.message); else { toast.success(is_approved ? "Reseña publicada" : "Reseña ocultada"); await loadWorkspace(); }
   };
   const deleteReview = async (review: ReviewRow) => {
     if (!supabase || !canDeleteRecords || !window.confirm(`¿Eliminar la reseña de ${review.author_name}?`)) return;
-    const { error } = await supabase.from("reviews").delete().eq("id", review.id);
-    if (error) toast.error(error.message); else { toast.success("Reseña eliminada"); await loadWorkspace(); }
+    setPendingPinAction({ title: "Confirmar eliminación", description: `Se eliminará la reseña de ${review.author_name}. Confirmá con tu contraseña de administrador.`, actionLabel: "Eliminar reseña", run: async () => {
+      const { error } = await supabase!.from("reviews").delete().eq("id", review.id);
+      if (error) toast.error(error.message); else { toast.success("Reseña eliminada"); await loadWorkspace(); }
+    } });
+  };
+  const deleteAuditRecord = async (item: AuditRow) => {
+    if (!supabase || role !== "owner" || !window.confirm(`¿Borrar permanentemente este evento de auditoría (${auditActionLabel(item.action).toLowerCase()}: ${entityLabel(item.entity_table)})? No se modificará el registro operativo relacionado.`)) return;
+    setPendingPinAction({ title: "Confirmar borrado de auditoría", description: "Se quitará sólo esta entrada de la bitácora. El registro operativo y su estado no se modificarán.", actionLabel: "Borrar entrada", run: async () => {
+      const { error } = await supabase!.from("audit_logs").delete().eq("id", item.id);
+      if (error) toast.error(`No se pudo borrar el evento: ${error.message}`); else { toast.success("Evento de auditoría eliminado"); await loadWorkspace(); }
+    } });
+  };
+  const clearAuditHistory = async () => {
+    if (!supabase || role !== "owner" || audit.length === 0) return;
+    const typed = window.prompt(`Se vaciará toda la bitácora, también los eventos anteriores que no se ven en esta lista. Esta acción no borra propiedades, consultas ni otros registros operativos. Escribí BORRAR HISTORIAL para confirmar.`);
+    if (typed !== "BORRAR HISTORIAL") { if (typed !== null) toast.error("Confirmación incorrecta; no se borró la bitácora."); return; }
+    setPendingPinAction({ title: "Confirmar vaciado de auditoría", description: "Se eliminará de forma permanente toda la bitácora. No se tocarán propiedades, consultas, finanzas ni otros registros operativos. Confirmá con la contraseña del Dueño.", actionLabel: "Vaciar bitácora", run: async () => {
+      const { error } = await supabase!.from("audit_logs").delete().not("id", "is", null);
+      if (error) toast.error(`No se pudo vaciar la bitácora: ${error.message}`); else { toast.success("Bitácora vaciada; no se tocaron los registros operativos"); await loadWorkspace(); }
+    } });
   };
   const changeTeamRole = async (member: TeamRow, nextRole: Role) => {
     if (!supabase || member.id === session?.user.id || member.role === nextRole) return;
@@ -345,27 +398,26 @@ export default function Admin() {
 
   if (!isSupabaseConfigured || !supabase) return <SetupMessage />;
   if (authLoading) return <AdminLoading />;
-  if (!session) return <LoginView login={login} setLogin={setLogin} onSubmit={signIn} loading={loggingIn} />;
+  if (!session) return <LoginView login={login} setLogin={setLogin} registerName={registerName} setRegisterName={setRegisterName} mode={authMode} setMode={setAuthMode} onSubmit={signIn} onRegister={registerAccount} loading={loggingIn} />;
   if (!profile) return <AccessDenied onSignOut={signOut} loading={true} />;
   if (!["owner", "admin", "manager", "secretary"].includes(profile.role)) return <AccessDenied onSignOut={signOut} loading={false} />;
 
-  const visibleTabs = tabs.filter((item) => item.id === "audit" ? isAdmin : item.id === "team" ? canManageTeam : true);
+  const visibleTabs = tabs.filter((item) => item.id === "audit" ? isAdmin : item.id === "team" ? canManageTeam : item.id === "operations" ? isAdmin : true);
   return (
     <div className="app-shell admin-shell">
-      <AdminHeader name={profile.full_name || session.user.email || "Equipo Riviera"} roleLabel={roleNames[role]} notifications={reviewDueProperties.map((item) => `${item.title} · ${Math.floor((Date.now() - new Date(item.created_at).getTime()) / 86400000)} días publicada`)} onNotificationClick={() => setTab("operations")} onSignOut={signOut} onRefresh={() => void loadWorkspace()} refreshing={dataLoading} />
+      <AdminHeader roleLabel={roleNames[role]} notifications={isAdmin ? reviewDueProperties.map((item) => `${item.title} · ${Math.floor((Date.now() - new Date(item.created_at).getTime()) / 86400000)} días publicada`) : []} onNotificationClick={() => setTab("operations")} onSignOut={signOut} showNotifications={isAdmin} />
       <main className="admin-main">
         <aside className="admin-sidebar">
           <div className="admin-sidebar-heading"><span className="admin-avatar"><ShieldCheck size={19} /></span><div><strong>Administración</strong><small>{profile.full_name || session.user.email}</small></div></div>
           <nav aria-label="Panel de administración">
             {visibleTabs.map(({ id, label, icon: Icon }) => <button key={id} type="button" className={tab === id ? "admin-nav-item active" : "admin-nav-item"} onClick={() => { setTab(id); setQuery(""); }}><Icon size={17} /> {label}{id === "leads" && leads.filter((lead) => lead.stage === "new").length > 0 && <span className="admin-nav-count">{leads.filter((lead) => lead.stage === "new").length}</span>}</button>)}
           </nav>
-          <div className="admin-sidebar-bottom"><span><span className="admin-online-dot" /> {roleNames[role]}</span><button type="button" onClick={signOut}><LogOut size={15} /> Cerrar sesión</button></div>
         </aside>
         <section className="admin-content">
           <header className="admin-topbar"><div><span className="admin-eyebrow">GESTIÓN INMOBILIARIA</span><h1>{visibleTabs.find((item) => item.id === tab)?.label}</h1><p className="admin-welcome">Hola, {profile.full_name || "equipo"}. Elegí una sección para empezar.</p></div><button className="admin-refresh" type="button" onClick={() => void loadWorkspace()} disabled={dataLoading}><RefreshCw size={15} className={dataLoading ? "spin" : ""} /> Actualizar datos</button></header>
           {tab === "overview" && <Overview properties={properties} leads={leads} tasks={followUps} audit={audit} isAdmin={isAdmin} setTab={setTab} />}
           {tab === "properties" && <section className="admin-panel-card">
-            <div className="admin-panel-heading"><div><h2>Inventario de propiedades</h2><p>Administrá precios, fotos, disponibilidad y publicación.</p></div>{canManageProperties && <button type="button" className="admin-primary-button" onClick={openNewProperty}><Plus size={16} /> Nueva propiedad</button>}</div>
+            <div className="admin-panel-heading"><div><h2>Inventario de propiedades</h2><p>Administrá precios, fotos, disponibilidad y publicación.</p></div>{canCreateProperties && <button type="button" className="admin-primary-button" onClick={openNewProperty}><Plus size={16} /> Nueva propiedad</button>}</div>
             {editorOpen && <PropertyEditor draft={propertyDraft} setDraft={setPropertyDraft} files={imageFiles} setFiles={setImageFiles} editing={Boolean(editingId)} saving={saving} onCancel={() => { setEditingId(null); setEditorOpen(false); setPropertyDraft(blankProperty); setImageFiles([]); }} onSubmit={saveProperty} />}
             <div className="admin-toolbar"><label className="admin-search"><Search size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar título, zona o estado" /></label><span>{filteredProperties.length} propiedades</span></div>
             {filteredProperties.length === 0 ? <EmptyState title="No hay propiedades todavía" detail="Creá un aviso para empezar a organizar el inventario." /> : <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Propiedad</th><th>Precio</th><th>Estado</th><th>Actualizada</th><th>Acciones</th></tr></thead><tbody>{filteredProperties.map((item) => <tr key={item.id}><td><div className="admin-property-cell"><img src={adminImageSource(item.images?.[0])} alt="" /><div><strong>{item.title}</strong><small><MapPin size={12} /> {item.location} · {item.operation}</small></div></div></td><td>{formatPrice(Number(item.price), item.currency)}{item.price_frequency && <small className="admin-subline"> / {item.price_frequency}</small>}</td><td>{canManageProperties ? <select className={`status-select status-${item.status}`} aria-label={`Estado de ${item.title}`} value={item.status} onChange={(event) => void setPropertyStatus(item, event.target.value as PropertyStatus)}>{Object.entries(statusNames).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select> : <span className={`lead-stage-pill status-${item.status}`}>{statusNames[item.status]}</span>}</td><td>{dateLabel(item.updated_at)}</td><td><div className="admin-row-actions">{canManageProperties && <button type="button" aria-label={`Editar ${item.title}`} onClick={() => openEditProperty(item)}><Pencil size={15} /></button>}<a href={`#/propiedad/${item.slug}`} target="_blank" rel="noreferrer" aria-label={`Ver ${item.title}`}><Home size={15} /></a>{canDeleteRecords && <button type="button" className="danger" aria-label={`Archivar ${item.title}`} onClick={() => void archiveProperty(item)}><Trash2 size={15} /></button>}</div></td></tr>)}</tbody></table></div>}
@@ -373,32 +425,98 @@ export default function Admin() {
           {tab === "leads" && <section className="admin-panel-card"><div className="admin-panel-heading"><div><h2>Consultas y clientes</h2><p>Seguimiento comercial de consultas del sitio y contactos registrados por el equipo.</p></div><span className="admin-count-pill">{leads.length} contactos</span></div>
             <form className="admin-inline-form crm-contact-form" onSubmit={addManualLead}><strong><Plus size={15} /> Agregar contacto</strong><input required minLength={2} value={leadDraft.name} onChange={(e) => setLeadDraft({ ...leadDraft, name: e.target.value })} placeholder="Nombre"/><input type="email" value={leadDraft.email} onChange={(e) => setLeadDraft({ ...leadDraft, email: e.target.value })} placeholder="Email (opcional)"/><input value={leadDraft.phone} onChange={(e) => setLeadDraft({ ...leadDraft, phone: e.target.value })} placeholder="Teléfono"/><input required minLength={3} value={leadDraft.message} onChange={(e) => setLeadDraft({ ...leadDraft, message: e.target.value })} placeholder="Interés / nota inicial"/><input type="number" min="0" value={leadDraft.budget_max} onChange={(e) => setLeadDraft({ ...leadDraft, budget_max: e.target.value })} placeholder="Presupuesto declarado"/><select value={leadDraft.budget_currency} onChange={(e) => setLeadDraft({ ...leadDraft, budget_currency: e.target.value as "USD" | "ARS" })}><option>USD</option><option>ARS</option></select><select value={leadDraft.financing} onChange={(e) => setLeadDraft({ ...leadDraft, financing: e.target.value })}><option value="to_define">Forma de pago a definir</option><option value="cash">Contado</option><option value="mortgage">Crédito</option><option value="installments">Cuotas</option></select><select value={leadDraft.urgency} onChange={(e) => setLeadDraft({ ...leadDraft, urgency: e.target.value })}><option value="high">Urgencia alta</option><option value="medium">Urgencia media</option><option value="low">Urgencia baja</option></select><input value={leadDraft.preferred_zone} onChange={(e) => setLeadDraft({ ...leadDraft, preferred_zone: e.target.value })} placeholder="Zona de interés"/><select value={leadDraft.priority} onChange={(e) => setLeadDraft({ ...leadDraft, priority: e.target.value as "high" | "normal" | "low" })}><option value="high">Prioridad alta</option><option value="normal">Prioridad normal</option><option value="low">Prioridad baja</option></select><input value={leadDraft.tags} onChange={(e) => setLeadDraft({ ...leadDraft, tags: e.target.value })} placeholder="Etiquetas: campo, inversor"/><button className="admin-primary-button" type="submit"><Plus size={15}/> Agregar</button></form>
             <div className="admin-toolbar"><label className="admin-search"><Search size={15}/><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar nombre, email o mensaje"/></label></div>
-            {filteredLeads.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Contacto</th><th>Interés</th><th>Segmentación comercial</th><th>Origen</th><th>Etapa</th><th>Fecha</th>{canDeleteRecords && <th>Acciones</th>}</tr></thead><tbody>{filteredLeads.map((lead) => <tr key={lead.id}><td><strong>{lead.name}</strong><small className="admin-contact-details">{lead.email && <span><Mail size={12}/> {lead.email}</span>}{lead.phone && <span><Phone size={12}/> {lead.phone}</span>}</small></td><td><span className="admin-message">{lead.message}</span>{lead.property_id && <small className="admin-subline">{properties.find((item) => item.id === lead.property_id)?.title ?? "Propiedad asociada"}</small>}</td><td><span className={`lead-priority-pill priority-${lead.priority}`}>{lead.priority === "high" ? "Prioridad alta" : lead.priority === "low" ? "Prioridad baja" : "Prioridad normal"}</span><small className="admin-subline">{lead.budget_max ? `${lead.budget_currency ?? "USD"} ${Number(lead.budget_max).toLocaleString("es-AR")}` : "Presupuesto a definir"}{lead.preferred_zone ? ` · ${lead.preferred_zone}` : ""}</small></td><td>{lead.source === "website" ? "Sitio web" : lead.source === "manual" ? "Manual" : lead.source}</td><td><select className={`status-select lead-${lead.stage}`} value={lead.stage} onChange={(e) => void updateLeadStage(lead.id, e.target.value)} aria-label={`Etapa de ${lead.name}`}>{stageOptions.map((stage) => <option key={stage} value={stage}>{leadStages[stage]}</option>)}</select></td><td>{dateLabel(lead.created_at)}</td>{canDeleteRecords && <td><button type="button" className="admin-row-delete" aria-label={`Eliminar consulta de ${lead.name}`} onClick={() => void deleteLead(lead)}><Trash2 size={15}/></button></td>}</tr>)}</tbody></table></div> : <EmptyState title="No hay consultas" detail="Las consultas recibidas desde las fichas y los contactos manuales aparecerán aquí para ordenar por etapa y datos comerciales declarados."/>}
+            {filteredLeads.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Contacto</th><th>Interés</th><th>Segmentación comercial</th><th>Origen</th><th>Etapa</th><th>Fecha</th>{canDeleteRecords && <th>Acciones</th>}</tr></thead><tbody>{filteredLeads.map((lead) => <tr key={lead.id}><td><strong>{lead.name}</strong><small className="admin-contact-details">{lead.email && <span><Mail size={12}/> {lead.email}</span>}{lead.phone && <span><Phone size={12}/> {lead.phone}</span>}</small></td><td><span className="admin-message">{lead.message}</span>{lead.property_id && <small className="admin-subline">{properties.find((item) => item.id === lead.property_id)?.title ?? "Propiedad asociada"}</small>}</td><td><span className={`lead-priority-pill priority-${lead.priority}`}>{lead.priority === "high" ? "Prioridad alta" : lead.priority === "low" ? "Prioridad baja" : "Prioridad normal"}</span><small className="admin-subline">{lead.budget_max ? `${lead.budget_currency ?? "USD"} ${Number(lead.budget_max).toLocaleString("es-AR")}` : "Presupuesto a definir"}{lead.preferred_zone ? ` · ${lead.preferred_zone}` : ""}</small></td><td>{lead.source === "website" ? "Sitio web" : lead.source === "manual" ? "Manual" : lead.source}</td><td><select className={`status-select lead-${lead.stage}`} value={lead.stage} disabled={!isAdmin} onChange={(e) => void updateLeadStage(lead.id, e.target.value)} aria-label={`Etapa de ${lead.name}`}>{stageOptions.map((stage) => <option key={stage} value={stage}>{leadStages[stage]}</option>)}</select></td><td>{dateLabel(lead.created_at)}</td>{canDeleteRecords && <td><button type="button" className="admin-row-delete" aria-label={`Eliminar consulta de ${lead.name}`} onClick={() => void deleteLead(lead)}><Trash2 size={15}/></button></td>}</tr>)}</tbody></table></div> : <EmptyState title="No hay consultas" detail="Las consultas recibidas desde las fichas y los contactos manuales aparecerán aquí para ordenar por etapa y datos comerciales declarados."/>}
           </section>}
           {tab === "reviews" && <section className="admin-panel-card"><div className="admin-panel-heading"><div><h2>Reseñas y reputación</h2><p>Moderá las reseñas enviadas desde la web antes de publicarlas.</p></div><span className="admin-count-pill">{reviews.filter((review) => !review.is_approved).length} pendientes</span></div>
-            {reviews.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Persona</th><th>Calificación</th><th>Comentario</th><th>Estado</th><th>Fecha</th><th>Acciones</th></tr></thead><tbody>{reviews.map((review) => <tr key={review.id}><td><strong>{review.author_name}</strong></td><td><span className="review-stars" aria-label={`${review.rating} de 5 estrellas`}>{"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}</span></td><td><span className="admin-message">{review.comment}</span></td><td><span className={`lead-stage-pill ${review.is_approved ? "status-published" : "lead-new"}`}>{review.is_approved ? "Publicada" : "Pendiente"}</span></td><td>{dateLabel(review.created_at)}</td><td><div className="admin-row-actions"><button type="button" aria-label={review.is_approved ? "Ocultar reseña" : "Publicar reseña"} onClick={() => void updateReview(review, !review.is_approved)}>{review.is_approved ? <X size={15} /> : <Check size={15} />}</button>{canDeleteRecords && <button type="button" className="danger" aria-label={`Eliminar reseña de ${review.author_name}`} onClick={() => void deleteReview(review)}><Trash2 size={15} /></button>}</div></td></tr>)}</tbody></table></div> : <EmptyState title="No hay reseñas todavía" detail="Las reseñas enviadas desde la página pública aparecerán aquí para su moderación."/>}
+            {reviews.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Persona</th><th>Calificación</th><th>Comentario</th><th>Estado</th><th>Fecha</th><th>Acciones</th></tr></thead><tbody>{reviews.map((review) => <tr key={review.id}><td><strong>{review.author_name}</strong></td><td><span className="review-stars" aria-label={`${review.rating} de 5 estrellas`}>{"★".repeat(review.rating)}{"☆".repeat(5 - review.rating)}</span></td><td><span className="admin-message">{review.comment}</span></td><td><span className={`lead-stage-pill ${review.is_approved ? "status-published" : "lead-new"}`}>{review.is_approved ? "Publicada" : "Pendiente"}</span></td><td>{dateLabel(review.created_at)}</td><td><div className="admin-row-actions">{canDeleteRecords && <button type="button" aria-label={review.is_approved ? "Ocultar reseña" : "Publicar reseña"} onClick={() => void updateReview(review, !review.is_approved)}>{review.is_approved ? <X size={15} /> : <Check size={15} />}</button>}{canDeleteRecords && <button type="button" className="danger" aria-label={`Eliminar reseña de ${review.author_name}`} onClick={() => void deleteReview(review)}><Trash2 size={15} /></button>}</div></td></tr>)}</tbody></table></div> : <EmptyState title="No hay reseñas todavía" detail="Las reseñas enviadas desde la página pública aparecerán aquí para su moderación."/>}
           </section>}
           {tab === "followups" && <section className="admin-panel-card"><div className="admin-panel-heading"><div><h2>Agenda de seguimientos</h2><p>Organizá llamadas, visitas y próximos pasos comerciales.</p></div><span className="admin-count-pill">{pendingTasks.length} pendientes</span></div>
             <form className="admin-task-form" onSubmit={addFollowUp}><label>Tarea<input required value={taskDraft.title} onChange={(e) => setTaskDraft({ ...taskDraft, title: e.target.value })} placeholder="Ej. Llamar para coordinar visita"/></label><label>Fecha y hora<input required type="datetime-local" value={taskDraft.due_at} onChange={(e) => setTaskDraft({ ...taskDraft, due_at: e.target.value })}/></label><label>Asociar consulta<select value={taskDraft.lead_id} onChange={(e) => setTaskDraft({ ...taskDraft, lead_id: e.target.value })}><option value="">Sin asociación</option>{leads.map((lead) => <option key={lead.id} value={lead.id}>{lead.name}</option>)}</select></label><label>Asociar propiedad<select value={taskDraft.property_id} onChange={(e) => setTaskDraft({ ...taskDraft, property_id: e.target.value })}><option value="">Sin asociación</option>{properties.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label><label className="task-notes-field">Nota<textarea value={taskDraft.notes} onChange={(e) => setTaskDraft({ ...taskDraft, notes: e.target.value })} rows={2} placeholder="Detalles del seguimiento"/></label><button type="submit" className="admin-primary-button"><Plus size={15}/> Crear seguimiento</button></form>
-            {followUps.length ? <div className="admin-task-list">{followUps.map((task) => { const property = properties.find((item) => item.id === task.property_id); const lead = leads.find((item) => item.id === task.lead_id); const overdue = task.status === "pending" && new Date(task.due_at).getTime() < Date.now(); return <article className={`admin-task-row ${task.status === "done" ? "is-done" : ""}`} key={task.id}><button className="task-check" type="button" aria-label={task.status === "done" ? "Reabrir seguimiento" : "Marcar completado"} onClick={() => void toggleFollowUp(task)}>{task.status === "done" ? <CheckCircle2 size={19}/> : <span/>}</button><div className="admin-task-copy"><strong>{task.title}</strong>{task.notes && <p>{task.notes}</p>}<small>{lead && <span><Users size={12}/>{lead.name}</span>}{property && <span><Building2 size={12}/>{property.title}</span>}</small></div><span className={`task-date ${overdue ? "is-overdue" : ""}`}><Clock3 size={13}/>{dateLabel(task.due_at)}{overdue && " · Vencida"}</span>{canDeleteRecords && <button type="button" className="admin-row-delete" aria-label={`Eliminar seguimiento ${task.title}`} onClick={() => void deleteFollowUp(task)}><Trash2 size={15}/></button>}</article>;})}</div> : <EmptyState title="Sin seguimientos agendados" detail="Agregá una llamada, visita u otra acción para no perder el próximo paso."/>}
+            {followUps.length ? <div className="admin-task-list">{followUps.map((task) => { const property = properties.find((item) => item.id === task.property_id); const lead = leads.find((item) => item.id === task.lead_id); const overdue = task.status === "pending" && new Date(task.due_at).getTime() < Date.now(); return <article className={`admin-task-row ${task.status === "done" ? "is-done" : ""}`} key={task.id}><button className="task-check" type="button" disabled={!isAdmin} title={!isAdmin ? "Sólo dueño o administrador puede editar" : undefined} aria-label={task.status === "done" ? "Reabrir seguimiento" : "Marcar completado"} onClick={() => void toggleFollowUp(task)}>{task.status === "done" ? <CheckCircle2 size={19}/> : <span/>}</button><div className="admin-task-copy"><strong>{task.title}</strong>{task.notes && <p>{task.notes}</p>}<small>{lead && <span><Users size={12}/>{lead.name}</span>}{property && <span><Building2 size={12}/>{property.title}</span>}</small></div><span className={`task-date ${overdue ? "is-overdue" : ""}`}><Clock3 size={13}/>{dateLabel(task.due_at)}{overdue && " · Vencida"}</span>{canDeleteRecords && <button type="button" className="admin-row-delete" aria-label={`Eliminar seguimiento ${task.title}`} onClick={() => void deleteFollowUp(task)}><Trash2 size={15}/></button>}</article>;})}</div> : <EmptyState title="Sin seguimientos agendados" detail="Agregá una llamada, visita u otra acción para no perder el próximo paso."/>}
           </section>}
           {tab === "operations" && <OperationsPanel properties={properties} session={session} canManageFinance={isAdmin} />}
-          {tab === "audit" && <section className="admin-panel-card"><div className="admin-panel-heading"><div><h2>Registro de auditoría</h2><p>Historial automático e inmutable de cambios en propiedades, consultas, seguimientos y cargos.</p></div><span className="admin-count-pill">Últimos {audit.length} eventos</span></div>
-            {audit.length ? <div className="admin-audit-list">{audit.map((item) => <details className="admin-audit-event" key={item.id}><summary><span className={`audit-action action-${item.action.toLowerCase()}`}>{item.action === "INSERT" ? "Creación" : item.action === "UPDATE" ? "Edición" : "Eliminación"}</span><strong>{entityLabel(item.entity_table)}</strong><code>{item.entity_id.slice(0, 8)}</code><time>{dateLabel(item.created_at)}</time><span className="audit-expand">Ver detalle</span></summary><div className="audit-snapshots"><div><strong>Antes</strong><pre>{item.old_values ? JSON.stringify(item.old_values, null, 2) : "—"}</pre></div><div><strong>Después</strong><pre>{item.new_values ? JSON.stringify(item.new_values, null, 2) : "—"}</pre></div></div><small className="audit-actor">Usuario: {item.actor_id ?? "Visitante del sitio / proceso automático"} · Registro protegido por políticas de base de datos</small></details>)}</div> : <EmptyState title="Todavía no hay eventos" detail="Las acciones sobre propiedades, consultas y seguimientos se registrarán aquí automáticamente."/>}
+          {tab === "audit" && <section className="admin-panel-card">
+            <div className="admin-panel-heading"><div><h2>Registro de actividad y eliminaciones</h2><p>Eventos de creación, edición y borrado con quién los realizó, cuándo ocurrieron y texto anterior/posterior. El historial operativo asociado permanece intacto al borrar una entrada de auditoría.</p></div><div className="admin-audit-heading-actions"><span className="admin-count-pill">{audit.length} eventos recientes</span>{role === "owner" && <button type="button" className="finance-delete-all" onClick={() => void clearAuditHistory()} disabled={!audit.length}><Trash2 size={15}/> Vaciar bitácora</button>}</div></div>
+            {audit.length ? <div className="admin-audit-list">{audit.map((item) => {
+              const actor = item.actor_name || item.actor_email || team.find((member) => member.id === item.actor_id)?.full_name || team.find((member) => member.id === item.actor_id)?.email || (item.actor_id ? "Cuenta del equipo sin perfil activo" : "Sistema o proceso automático");
+              const targetValues = item.action === "DELETE" ? item.old_values : item.new_values ?? item.old_values;
+              return <details className="admin-audit-event" key={item.id}>
+                <summary><span className={`audit-action ${auditActionClass(item.action)}`}>{auditActionLabel(item.action)}</span><strong>{entityLabel(item.entity_table)}</strong><span className="audit-target-label">{auditTargetLabel(targetValues)}</span><time>{dateLabel(item.created_at)}</time><span className="audit-expand">Ver antes/después</span></summary>
+                <div className="audit-snapshots"><div><strong>Antes</strong><AuditSnapshot values={item.old_values} emptyLabel={item.action === "INSERT" ? "No había datos previos; es un registro nuevo." : "No se conservó una captura previa."}/></div><div><strong>Después</strong><AuditSnapshot values={item.new_values} emptyLabel={item.action === "DELETE" ? "El registro fue eliminado." : "No se conservó una captura posterior."}/></div></div>
+                <div className="audit-event-footer"><small className="audit-actor">{auditActionLabel(item.action)} por: {actor} · {dateLabel(item.created_at)}</small>{role === "owner" && <button type="button" className="admin-row-delete" aria-label="Borrar esta entrada de auditoría" onClick={() => void deleteAuditRecord(item)}><Trash2 size={15}/></button>}</div>
+              </details>;
+            })}</div> : <EmptyState title="Todavía no hay actividad" detail="Las altas, ediciones y eliminaciones registradas aparecerán aquí con antes y después en formato de texto."/>}
           </section>}
           {tab === "team" && canManageTeam && <TeamManager team={team} currentUserId={session.user.id} currentRole={role} onRoleChange={changeTeamRole} />}
         </section>
       </main>
+      {pendingPinAction && <AdminPinDialog title={pendingPinAction.title} description={pendingPinAction.description} actionLabel={pendingPinAction.actionLabel} onAuthorized={pendingPinAction.run} onCancel={() => setPendingPinAction(null)} />}
     </div>
   );
 }
 
-function AdminHeader({ name = "Panel de administración", roleLabel, notifications = [], onNotificationClick, onSignOut, onRefresh, refreshing = false }: { name?: string; roleLabel?: string; notifications?: string[]; onNotificationClick?: () => void; onSignOut?: () => void; onRefresh?: () => void; refreshing?: boolean }) {
+function AdminHeader({ roleLabel, notifications = [], onNotificationClick, onSignOut, showNotifications = false }: { roleLabel?: string; notifications?: string[]; onNotificationClick?: () => void; onSignOut?: () => void; showNotifications?: boolean }) {
   const [open, setOpen] = useState(false);
-  return <header className="admin-header"><a className="admin-header-brand" href="#/admin" aria-label="Inicio del panel"><span className="admin-header-mark"><Building2 size={21}/></span><span><strong>RIVIERA</strong><small>GESTIÓN INMOBILIARIA</small></span></a><div className="admin-header-actions"><span className="admin-header-user"><strong>{name}</strong>{roleLabel && <small>{roleLabel}</small>}</span>{notifications.length > 0 && <div className="admin-notification-wrap"><button className="admin-notification-button has-notifications" type="button" aria-label={`${notifications.length} alertas de revisión`} aria-expanded={open} onClick={() => setOpen(!open)}><Bell size={19}/><span>{notifications.length}</span></button>{open && <div className="admin-notification-menu"><strong><Bell size={16}/> Revisiones pendientes ({notifications.length})</strong><p>Estos avisos publicados llevan 90 días o más y conviene revisar su vigencia.</p><ul>{notifications.slice(0, 6).map((item) => <li key={item}>{item}</li>)}</ul>{notifications.length > 6 && <small>Y {notifications.length - 6} más…</small>}<button type="button" onClick={() => { setOpen(false); onNotificationClick?.(); }}>Ver alertas y operaciones</button></div>}</div>}{notifications.length === 0 && <span className="admin-no-alerts"><Bell size={18}/> Sin alertas</span>}{onRefresh && <button className="admin-header-icon-button" type="button" aria-label="Actualizar datos" onClick={onRefresh} disabled={refreshing}><RefreshCw size={18} className={refreshing ? "spin" : ""}/></button>}{onSignOut && <button className="admin-header-signout" type="button" onClick={onSignOut}><LogOut size={17}/> <span>Salir</span></button>}</div></header>;
+  return <header className="admin-header"><a className="admin-header-brand" href="#/admin" aria-label="Inicio del panel"><img className="admin-header-logo" src={`${import.meta.env.BASE_URL}riviera-brand-mark.png`} alt="Logo de Inmobiliaria Riviera" /><span><strong>RIVIERA</strong><small>INMOBILIARIA</small></span></a><div className="admin-header-actions">{roleLabel && <span className="admin-header-user"><strong>{roleLabel}</strong></span>}{showNotifications && <div className="admin-notification-wrap"><button className={`admin-notification-button ${notifications.length ? "has-notifications" : ""}`} type="button" aria-label={notifications.length ? `${notifications.length} alertas de revisión` : "Sin alertas de revisión"} aria-expanded={open} onClick={() => setOpen(!open)}><Bell size={19}/><span>{notifications.length}</span></button>{open && <div className="admin-notification-menu"><strong><Bell size={16}/> {notifications.length ? `Revisiones pendientes (${notifications.length})` : "Sin alertas"}</strong>{notifications.length ? <><p>Estos avisos publicados llevan 90 días o más y conviene revisar su vigencia.</p><ul>{notifications.slice(0, 6).map((item) => <li key={item}>{item}</li>)}</ul>{notifications.length > 6 && <small>Y {notifications.length - 6} más…</small>}</> : <p>Por ahora no hay propiedades que requieran revisión por antigüedad.</p>}<button type="button" onClick={() => { setOpen(false); onNotificationClick?.(); }}>{notifications.length ? "Ver operaciones" : "Ir a operaciones"}</button></div>}</div>}{onSignOut && <button className="admin-header-signout" type="button" onClick={onSignOut}><LogOut size={17}/> <span>Salir</span></button>}</div></header>;
 }
-
-function entityLabel(table: string) { return table === "properties" ? "Propiedad" : table === "leads" ? "Consulta" : table === "follow_ups" ? "Seguimiento" : table === "profiles" ? "Cargo de equipo" : table; }
+const auditFieldLabels: Record<string, string> = {
+  title: "Título", name: "Nombre", full_name: "Nombre", author_name: "Autor", email: "Correo", phone: "Teléfono",
+  message: "Mensaje", description: "Descripción", notes: "Notas", operation: "Operación", category: "Categoría",
+  location: "Localidad", region: "Región", price: "Precio", amount: "Importe", currency: "Moneda", price_frequency: "Frecuencia",
+  surface: "Superficie", covered_surface: "Superficie cubierta", surface_unit: "Unidad", bedrooms: "Dormitorios", bathrooms: "Baños",
+  rooms: "Ambientes", legal_status: "Estado legal", features: "Características", status: "Estado", stage: "Etapa", source: "Origen",
+  rating: "Calificación", comment: "Comentario", is_approved: "Aprobada", role: "Rol", due_at: "Vencimiento",
+  occurred_at: "Fecha del movimiento", budget_max: "Presupuesto", budget_currency: "Moneda del presupuesto", financing: "Financiación",
+  urgency: "Urgencia", priority: "Prioridad", preferred_operation: "Operación buscada", preferred_zone: "Zona buscada", tags: "Etiquetas",
+  created_at: "Creado", updated_at: "Actualizado", archived_at: "Archivado", completed_at: "Completado",
+};
+function auditTextEntries(values: Record<string, unknown> | null): [string, string][] {
+  if (!values) return [];
+  const hiddenKey = /(^id$|_id$|uuid|code|codigo|token|password|secret|slug|(^|_)url$|images?|(^|_)path$|created_by|updated_by)/i;
+  const uuidValue = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
+  return Object.entries(values).flatMap(([key, raw]) => {
+    if (hiddenKey.test(key) || raw == null) return [];
+    const arrayText = Array.isArray(raw) ? raw.filter((item) => typeof item === "string" || typeof item === "number").map(String).filter((item) => !uuidValue.test(item)).join(", ") : null;
+    if (Array.isArray(raw) && !arrayText) return [];
+    if (typeof raw === "object" && !Array.isArray(raw)) return [];
+    const scalar: unknown = Array.isArray(raw) ? arrayText : raw;
+    if (typeof scalar === "string" && (!scalar.trim() || uuidValue.test(scalar.trim()))) return [];
+    const label = auditFieldLabels[key] ?? key.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toLocaleUpperCase("es-AR"));
+    const valueLabels: Record<string, Record<string, string>> = {
+      status: { draft: "Borrador", published: "Publicado", sold: "Vendido", rented: "Alquilado", archived: "Archivado", pending: "Pendiente", completed: "Realizado", voided: "Anulado", done: "Completado", cancelled: "Cancelado" },
+      type: { income: "Ingreso", expense: "Gasto", owner_payment: "Pago al dueño", agency_profit: "Ganancia Riviera", commission: "Comisión" },
+      source: { website: "Sitio web", manual: "Carga manual", public: "Formulario web" },
+      priority: { high: "Alta", normal: "Normal", low: "Baja" },
+      urgency: { high: "Alta", medium: "Media", low: "Baja" },
+      financing: { cash: "Contado", mortgage: "Crédito", installments: "Cuotas", to_define: "A definir" },
+    };
+    let value: string;
+    if (typeof scalar === "boolean") value = scalar ? "Sí" : "No";
+    else if (typeof scalar === "number") value = scalar.toLocaleString("es-AR");
+    else if (/(?:_at|^date$)/i.test(key) && !Number.isNaN(Date.parse(String(scalar)))) value = dateLabel(String(scalar));
+    else if (key === "role" && String(scalar) in roleNames) value = roleNames[String(scalar) as Role];
+    else if (key === "stage" && String(scalar) in leadStages) value = leadStages[String(scalar)];
+    else if (valueLabels[key]?.[String(scalar)]) value = valueLabels[key][String(scalar)];
+    else value = String(scalar).trim();
+    return [[label, value] as [string, string]];
+  });
+}
+function AuditSnapshot({ values, emptyLabel }: { values: Record<string, unknown> | null; emptyLabel: string }) {
+  const entries = auditTextEntries(values);
+  if (!entries.length) return <p className="audit-snapshot-empty">{emptyLabel}</p>;
+  return <dl className="audit-text-values">{entries.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>;
+}
+function auditActionLabel(action: string) { return action === "INSERT" ? "CREADO" : action === "UPDATE" ? "EDITADO" : action === "DELETE" ? "ELIMINADO" : "ACTUALIZADO"; }
+function auditActionClass(action: string) { return action === "INSERT" ? "action-insert" : action === "UPDATE" ? "action-update" : "action-delete"; }
+function auditTargetLabel(values: Record<string, unknown> | null) {
+  if (!values) return "Registro eliminado";
+  for (const key of ["title", "name", "author_name", "description", "question", "email", "full_name"]) {
+    const value = values[key];
+    if (typeof value === "string" && value.trim()) return value;
+  }
+  return "Registro eliminado";
+}
+function entityLabel(table: string) { return ({ properties: "Propiedad", leads: "Consulta", follow_ups: "Seguimiento", profiles: "Cuenta del equipo", financial_transactions: "Movimiento de caja", calculator_runs: "Cálculo", welcome_automations: "Automatización", faq_entries: "Pregunta frecuente", lead_events: "Evento de consulta", reviews: "Reseña" } as Record<string, string>)[table] ?? "Registro"; }
 function Overview({ properties, leads, tasks, audit, isAdmin, setTab }: { properties: PropertyRow[]; leads: LeadRow[]; tasks: FollowUpRow[]; audit: AuditRow[]; isAdmin: boolean; setTab: (tab: Tab) => void }) {
   const pending = tasks.filter((task) => task.status === "pending");
   const overdue = pending.filter((task) => new Date(task.due_at).getTime() < Date.now());
@@ -407,14 +525,14 @@ function Overview({ properties, leads, tasks, audit, isAdmin, setTab }: { proper
     { label: "Avisos activos", value: properties.filter((item) => ["published", "sold", "rented"].includes(item.status)).length, note: `${properties.length} en inventario`, icon: Building2 },
     { label: "Consultas nuevas", value: fresh.length, note: `${leads.length} contactos en CRM`, icon: Users },
     { label: "Seguimientos abiertos", value: pending.length, note: `${overdue.length} vencidos`, icon: CalendarClock, warn: overdue.length > 0 },
-    ...(isAdmin ? [{ label: "Bitácora reciente", value: audit.length, note: "Eventos registrados", icon: FileClock }] : []),
+    ...(isAdmin ? [{ label: "Actividad auditada", value: audit.length, note: "Cambios y eliminaciones", icon: FileClock }] : []),
   ];
   return <>
     <div className="admin-metric-grid">{metrics.map(({ label, value, note, icon: Icon, warn }) => <article className={`admin-metric-card ${warn ? "is-warning" : ""}`} key={label}><span className="admin-metric-icon"><Icon size={19}/></span><small>{label}</small><strong>{value}</strong><span>{note}</span></article>)}</div>
     <div className="admin-overview-grid"><section className="admin-panel-card"><div className="admin-panel-heading"><div><h2>Últimas consultas</h2><p>Contactos que requieren atención comercial.</p></div><button className="admin-text-button" type="button" onClick={() => setTab("leads")}>Ver CRM</button></div>{leads.slice(0, 5).length ? leads.slice(0, 5).map((lead) => <div className="overview-list-row" key={lead.id}><span className="overview-avatar"><Users size={16}/></span><div><strong>{lead.name}</strong><small>{lead.message}</small></div><span className={`lead-stage-pill lead-${lead.stage}`}>{leadStages[lead.stage] ?? lead.stage}</span></div>) : <EmptyState title="Sin consultas todavía" detail="Los contactos que lleguen desde la web aparecerán aquí."/>}</section>
       <section className="admin-panel-card"><div className="admin-panel-heading"><div><h2>Próximos seguimientos</h2><p>Agenda de tareas pendientes.</p></div><button className="admin-text-button" type="button" onClick={() => setTab("followups")}>Abrir agenda</button></div>{pending.slice(0, 5).length ? pending.slice(0, 5).map((task) => <div className="overview-list-row" key={task.id}><span className="overview-avatar"><Clock3 size={16}/></span><div><strong>{task.title}</strong><small>{dateLabel(task.due_at)}</small></div><span className={new Date(task.due_at).getTime() < Date.now() ? "task-mini overdue" : "task-mini"}>{new Date(task.due_at).getTime() < Date.now() ? "Vencida" : "Pendiente"}</span></div>) : <EmptyState title="Agenda al día" detail="No hay seguimientos abiertos."/>}</section></div>
       <section className="admin-panel-card"><div className="admin-panel-heading"><div><h2>Inventario reciente</h2><p>Últimas propiedades actualizadas.</p></div><button className="admin-text-button" type="button" onClick={() => setTab("properties")}>Ver propiedades</button></div>{properties.slice(0, 4).map((item) => <div className="overview-list-row" key={item.id}><span className="overview-avatar"><Building2 size={16}/></span><div><strong>{item.title}</strong><small>{item.location} · {formatPrice(Number(item.price), item.currency)}</small></div><span className={`lead-stage-pill status-${item.status}`}>{statusNames[item.status]}</span></div>)}</section>
-    {isAdmin && <section className="admin-panel-card"><div className="admin-panel-heading"><div><h2>Actividad reciente</h2><p>Últimos cambios registrados en la bitácora.</p></div><button className="admin-text-button" type="button" onClick={() => setTab("audit")}>Abrir auditoría</button></div>{audit.slice(0, 5).length ? audit.slice(0, 5).map((item) => <div className="overview-list-row" key={item.id}><span className="overview-avatar"><FileClock size={16}/></span><div><strong>{entityLabel(item.entity_table)} · {item.action === "INSERT" ? "creado" : item.action === "UPDATE" ? "actualizado" : "eliminado"}</strong><small>{dateLabel(item.created_at)} · {item.actor_id ? `Usuario ${item.actor_id.slice(0, 8)}` : "Origen público/automático"}</small></div></div>) : <EmptyState title="Sin cambios todavía" detail="Las operaciones sobre datos aparecerán en la bitácora."/>}</section>}
+    {isAdmin && <section className="admin-panel-card"><div className="admin-panel-heading"><div><h2>Actividad reciente</h2><p>Últimos cambios registrados en la bitácora.</p></div><button className="admin-text-button" type="button" onClick={() => setTab("audit")}>Abrir auditoría</button></div>{audit.slice(0, 5).length ? audit.slice(0, 5).map((item) => <div className="overview-list-row" key={item.id}><span className="overview-avatar"><FileClock size={16}/></span><div><strong>{entityLabel(item.entity_table)} · {item.action === "INSERT" ? "creado" : item.action === "UPDATE" ? "actualizado" : "eliminado"}</strong><small>{dateLabel(item.created_at)} · {item.actor_name || item.actor_email || (item.actor_id ? "Cuenta del equipo" : "Sistema / proceso automático")}</small></div></div>) : <EmptyState title="Sin cambios todavía" detail="Las operaciones sobre datos aparecerán en la bitácora."/>}</section>}
   </>;
 }
 function PropertyEditor({ draft, setDraft, files, setFiles, editing, saving, onCancel, onSubmit }: { draft: PropertyDraft; setDraft: (draft: PropertyDraft) => void; files: File[]; setFiles: (files: File[]) => void; editing: boolean; saving: boolean; onCancel: () => void; onSubmit: (event: FormEvent) => void }) {
@@ -447,8 +565,9 @@ function PropertyEditor({ draft, setDraft, files, setFiles, editing, saving, onC
     <div className="editor-actions"><button type="button" className="admin-secondary-button" onClick={onCancel}><ArrowLeft size={15}/> Cancelar</button><button type="submit" disabled={saving} className="admin-primary-button">{saving ? <LoaderCircle className="spin" size={16}/> : <Save size={16}/>} {saving ? "Guardando…" : editing ? "Guardar cambios" : "Crear propiedad"}</button></div>
   </form>;
 }
-function LoginView({ login, setLogin, onSubmit, loading }: { login: { email: string; password: string }; setLogin: (value: { email: string; password: string }) => void; onSubmit: (event: FormEvent) => void; loading: boolean }) {
-  return <div className="admin-login-page"><AdminHeader/><main className="admin-login-card"><span className="admin-login-icon"><ShieldCheck size={25}/></span><span className="admin-eyebrow">ACCESO DEL EQUIPO</span><h1>Panel de administración</h1><p>Ingresá con la cuenta de Supabase autorizada por la inmobiliaria.</p><form onSubmit={onSubmit}><label>Email<input type="email" autoComplete="username" required value={login.email} onChange={(e) => setLogin({ ...login, email: e.target.value })}/></label><label>Contraseña<input type="password" autoComplete="current-password" required value={login.password} onChange={(e) => setLogin({ ...login, password: e.target.value })}/></label><button className="admin-primary-button" type="submit" disabled={loading}>{loading ? <LoaderCircle className="spin" size={16}/> : <ShieldCheck size={16}/>} Iniciar sesión</button></form><small>El registro de usuarios está deshabilitado en esta pantalla.</small></main></div>;
+function LoginView({ login, setLogin, registerName, setRegisterName, mode, setMode, onSubmit, onRegister, loading }: { login: { email: string; password: string }; setLogin: (value: { email: string; password: string }) => void; registerName: string; setRegisterName: (value: string) => void; mode: "sign_in" | "sign_up"; setMode: (value: "sign_in" | "sign_up") => void; onSubmit: (event: FormEvent) => void; onRegister: (event: FormEvent) => void; loading: boolean }) {
+  const registering = mode === "sign_up";
+  return <div className="admin-login-page"><AdminHeader/><main className="admin-login-card"><span className="admin-login-icon"><ShieldCheck size={25}/></span><span className="admin-eyebrow">{registering ? "REGISTRO EN SUPABASE" : "ACCESO DEL EQUIPO"}</span><h1>{registering ? "Crear cuenta" : "Panel de administración"}</h1><p>{registering ? "Registrá el correo y la contraseña en Supabase Auth. La cuenta nueva comienza sin permisos; el dueño o administrador debe asignarle un rol." : "Ingresá con una cuenta registrada en Supabase Auth y autorizada por la inmobiliaria."}</p><form onSubmit={registering ? onRegister : onSubmit}>{registering && <label>Nombre completo<input autoComplete="name" required maxLength={120} value={registerName} onChange={(e) => setRegisterName(e.target.value)} /></label>}<label>Email<input type="email" autoComplete="username" required value={login.email} onChange={(e) => setLogin({ ...login, email: e.target.value })}/></label><label>Contraseña<input type="password" autoComplete={registering ? "new-password" : "current-password"} minLength={registering ? 8 : undefined} required value={login.password} onChange={(e) => setLogin({ ...login, password: e.target.value })}/></label><button className="admin-primary-button" type="submit" disabled={loading}>{loading ? <LoaderCircle className="spin" size={16}/> : <ShieldCheck size={16}/>} {loading ? "Procesando…" : registering ? "Crear cuenta en Supabase" : "Iniciar sesión"}</button></form><button type="button" className="admin-auth-mode-toggle" onClick={() => setMode(registering ? "sign_in" : "sign_up")}>{registering ? "Ya tengo una cuenta · Iniciar sesión" : "¿No tenés una cuenta? Registrarse"}</button>{!registering && <small>El acceso administrativo sólo se habilita para cuentas a las que dueño/administrador les asigne un rol. El registro está sujeto a la configuración de Supabase Auth.</small>}</main></div>;
 }
 function SetupMessage() { return <div className="admin-login-page"><AdminHeader/><main className="admin-login-card setup-card"><span className="admin-login-icon"><AlertTriangle size={25}/></span><span className="admin-eyebrow">FALTA CONFIGURACIÓN</span><h1>Conectá Supabase</h1><p>Definí <code>VITE_SUPABASE_URL</code> y <code>VITE_SUPABASE_ANON_KEY</code> en `.env.local` para desarrollo o en GitHub Actions para publicar. Aplicá primero <code>supabase/schema.sql</code> y creá primero el usuario dueño en Supabase Auth y luego asignale el rol owner.</p><a className="admin-secondary-button" href="https://supabase.com/dashboard" target="_blank" rel="noreferrer">Abrir Supabase</a></main></div>; }
 function AccessDenied({ onSignOut, loading }: { onSignOut: () => void; loading: boolean }) { return <div className="admin-login-page"><AdminHeader onSignOut={onSignOut}/><main className="admin-login-card"><span className="admin-login-icon"><ShieldCheck size={25}/></span><h1>{loading ? "Verificando acceso…" : "Acceso no autorizado"}</h1><p>{loading ? "Consultando los permisos de esta cuenta." : "La cuenta inició sesión, pero todavía no tiene un rol habilitado. Solicitá autorización al dueño o administrador del sistema."}</p>{!loading && <button className="admin-secondary-button" type="button" onClick={onSignOut}><LogOut size={15}/> Cerrar sesión</button>}</main></div>; }
@@ -460,14 +579,15 @@ function TeamManager({ team, currentUserId, currentRole, onRoleChange }: { team:
   const allRoles: Role[] = ["owner", "admin", "manager", "secretary", "user"];
   const availableRoles = currentRole === "owner" ? allRoles : ["manager", "secretary", "user"] as Role[];
   const permissions: { role: Role; detail: string }[] = [
-    { role: "owner", detail: "Acceso total, administra todos los cargos y conserva el control de la cuenta dueña." },
-    { role: "admin", detail: "Gestiona inventario, CRM, seguimientos y auditoría; administra gestores/secretaría, no dueños ni administradores." },
-    { role: "manager", detail: "Crea y edita propiedades, fotos, consultas y seguimientos; no borra registros ni administra equipo/auditoría." },
-    { role: "secretary", detail: "Consulta inventario; registra y actualiza consultas y seguimientos. No edita propiedades ni ve equipo/auditoría." },
+    { role: "owner", detail: "Acceso total: administra equipo y todos los datos. Puede designar administradores y controlar caja." },
+    { role: "admin", detail: "Administra propiedades, CRM y caja (la ganancia privada requiere PIN). Puede asignar gestor/secretaría/usuario, pero no modificar dueños ni administradores." },
+    { role: "manager", detail: "Puede crear propiedades y registrar consultas/seguimientos. Consulta inventario y CRM, pero no edita ni elimina registros existentes y no accede a caja." },
+    { role: "secretary", detail: "Consulta inventario y CRM; puede registrar consultas y seguimientos, pero no modificar propiedades, caja ni equipo." },
+    { role: "user", detail: "Cuenta registrada sin permisos del panel hasta que el Dueño o Administrador le asigne un cargo." },
   ];
   return <section className="admin-panel-card">
     <div className="admin-panel-heading"><div><h2>Equipo y permisos</h2><p>Asigná el cargo adecuado a cada cuenta. Los cambios se registran en auditoría.</p></div><span className="admin-count-pill">{team.length} cuentas</span></div>
-    <div className="team-security-note"><ShieldCheck size={16}/><span>Primero creá la cuenta en Supabase Auth. Las cuentas nuevas no tienen acceso hasta que se les asigne un rol. Nadie puede cambiar su propio cargo; un administrador no puede crear ni modificar dueños/administradores.</span></div>
+    <div className="team-security-note"><ShieldCheck size={16}/><span>Registrá la cuenta desde el acceso (queda en Supabase Auth). Las cuentas nuevas comienzan sin acceso hasta que se les asigne un rol. Nadie puede cambiar su propio cargo; un administrador no puede crear ni modificar dueños/administradores.</span></div>
     <div className="role-permission-grid">{permissions.map(({ role: permissionRole, detail }) => <article className="role-permission-card" key={permissionRole}><span className={`role-badge role-${permissionRole}`}>{roleNames[permissionRole]}</span><p>{detail}</p></article>)}</div>
     {team.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Persona</th><th>Acceso actual</th><th>Modificar cargo</th><th>Alta</th></tr></thead><tbody>{team.map((member) => {
       const restrictedAdmin = currentRole === "admin" && ["owner", "admin"].includes(member.role);
