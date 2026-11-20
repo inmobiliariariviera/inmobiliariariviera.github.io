@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
-  AlertTriangle, ArrowLeft, BadgeCheck, Building2, CalendarClock, Check, CheckCircle2,
+  AlertTriangle, ArrowLeft, BadgeCheck, Bell, Building2, CalendarClock, Check, CheckCircle2,
   ClipboardList, Clock3, DollarSign, FileClock, Home, LoaderCircle, LogOut, Mail,
   MapPin, Pencil, Phone, Plus, RefreshCw, Save, Search, ShieldCheck, Trash2, UploadCloud,
   Star, Users, WalletCards, X,
 } from "lucide-react";
 import { toast } from "sonner";
-import SiteHeader from "@/components/real-estate/SiteHeader";
 import OperationsPanel from "@/components/real-estate/OperationsPanel";
 import { formatPrice, type PropertyStatus } from "@/data/properties";
 import { isSupabaseConfigured, supabase, type PropertyRow } from "@/lib/supabase";
@@ -171,6 +170,7 @@ export default function Admin() {
   const pendingTasks = followUps.filter((task) => task.status === "pending");
   const overdueTasks = pendingTasks.filter((task) => new Date(task.due_at).getTime() < Date.now());
   const activeListings = properties.filter((item) => ["published", "sold", "rented"].includes(item.status)).length;
+  const reviewDueProperties = properties.filter((item) => item.status === "published" && item.created_at && Date.now() - new Date(item.created_at).getTime() >= 90 * 86400000);
   const role = (profile?.role ?? "user") as Role;
   const isAdmin = role === "owner" || role === "admin";
   const canManageProperties = ["owner", "admin", "manager"].includes(role);
@@ -352,7 +352,7 @@ export default function Admin() {
   const visibleTabs = tabs.filter((item) => item.id === "audit" ? isAdmin : item.id === "team" ? canManageTeam : true);
   return (
     <div className="app-shell admin-shell">
-      <SiteHeader />
+      <AdminHeader name={profile.full_name || session.user.email || "Equipo Riviera"} roleLabel={roleNames[role]} notifications={reviewDueProperties.map((item) => `${item.title} · ${Math.floor((Date.now() - new Date(item.created_at).getTime()) / 86400000)} días publicada`)} onNotificationClick={() => setTab("operations")} onSignOut={signOut} onRefresh={() => void loadWorkspace()} refreshing={dataLoading} />
       <main className="admin-main">
         <aside className="admin-sidebar">
           <div className="admin-sidebar-heading"><span className="admin-avatar"><ShieldCheck size={19} /></span><div><strong>Administración</strong><small>{profile.full_name || session.user.email}</small></div></div>
@@ -362,7 +362,7 @@ export default function Admin() {
           <div className="admin-sidebar-bottom"><span><span className="admin-online-dot" /> {roleNames[role]}</span><button type="button" onClick={signOut}><LogOut size={15} /> Cerrar sesión</button></div>
         </aside>
         <section className="admin-content">
-          <header className="admin-topbar"><div><span className="admin-eyebrow">GESTIÓN INMOBILIARIA</span><h1>{visibleTabs.find((item) => item.id === tab)?.label}</h1></div><button className="admin-refresh" type="button" onClick={() => void loadWorkspace()} disabled={dataLoading}><RefreshCw size={15} className={dataLoading ? "spin" : ""} /> Actualizar</button></header>
+          <header className="admin-topbar"><div><span className="admin-eyebrow">GESTIÓN INMOBILIARIA</span><h1>{visibleTabs.find((item) => item.id === tab)?.label}</h1><p className="admin-welcome">Hola, {profile.full_name || "equipo"}. Elegí una sección para empezar.</p></div><button className="admin-refresh" type="button" onClick={() => void loadWorkspace()} disabled={dataLoading}><RefreshCw size={15} className={dataLoading ? "spin" : ""} /> Actualizar datos</button></header>
           {tab === "overview" && <Overview properties={properties} leads={leads} tasks={followUps} audit={audit} isAdmin={isAdmin} setTab={setTab} />}
           {tab === "properties" && <section className="admin-panel-card">
             <div className="admin-panel-heading"><div><h2>Inventario de propiedades</h2><p>Administrá precios, fotos, disponibilidad y publicación.</p></div>{canManageProperties && <button type="button" className="admin-primary-button" onClick={openNewProperty}><Plus size={16} /> Nueva propiedad</button>}</div>
@@ -391,6 +391,11 @@ export default function Admin() {
       </main>
     </div>
   );
+}
+
+function AdminHeader({ name = "Panel de administración", roleLabel, notifications = [], onNotificationClick, onSignOut, onRefresh, refreshing = false }: { name?: string; roleLabel?: string; notifications?: string[]; onNotificationClick?: () => void; onSignOut?: () => void; onRefresh?: () => void; refreshing?: boolean }) {
+  const [open, setOpen] = useState(false);
+  return <header className="admin-header"><a className="admin-header-brand" href="#/admin" aria-label="Inicio del panel"><span className="admin-header-mark"><Building2 size={21}/></span><span><strong>RIVIERA</strong><small>GESTIÓN INMOBILIARIA</small></span></a><div className="admin-header-actions"><span className="admin-header-user"><strong>{name}</strong>{roleLabel && <small>{roleLabel}</small>}</span>{notifications.length > 0 && <div className="admin-notification-wrap"><button className="admin-notification-button has-notifications" type="button" aria-label={`${notifications.length} alertas de revisión`} aria-expanded={open} onClick={() => setOpen(!open)}><Bell size={19}/><span>{notifications.length}</span></button>{open && <div className="admin-notification-menu"><strong><Bell size={16}/> Revisiones pendientes ({notifications.length})</strong><p>Estos avisos publicados llevan 90 días o más y conviene revisar su vigencia.</p><ul>{notifications.slice(0, 6).map((item) => <li key={item}>{item}</li>)}</ul>{notifications.length > 6 && <small>Y {notifications.length - 6} más…</small>}<button type="button" onClick={() => { setOpen(false); onNotificationClick?.(); }}>Ver alertas y operaciones</button></div>}</div>}{notifications.length === 0 && <span className="admin-no-alerts"><Bell size={18}/> Sin alertas</span>}{onRefresh && <button className="admin-header-icon-button" type="button" aria-label="Actualizar datos" onClick={onRefresh} disabled={refreshing}><RefreshCw size={18} className={refreshing ? "spin" : ""}/></button>}{onSignOut && <button className="admin-header-signout" type="button" onClick={onSignOut}><LogOut size={17}/> <span>Salir</span></button>}</div></header>;
 }
 
 function entityLabel(table: string) { return table === "properties" ? "Propiedad" : table === "leads" ? "Consulta" : table === "follow_ups" ? "Seguimiento" : table === "profiles" ? "Cargo de equipo" : table; }
@@ -443,11 +448,11 @@ function PropertyEditor({ draft, setDraft, files, setFiles, editing, saving, onC
   </form>;
 }
 function LoginView({ login, setLogin, onSubmit, loading }: { login: { email: string; password: string }; setLogin: (value: { email: string; password: string }) => void; onSubmit: (event: FormEvent) => void; loading: boolean }) {
-  return <div className="admin-login-page"><SiteHeader/><main className="admin-login-card"><span className="admin-login-icon"><ShieldCheck size={25}/></span><span className="admin-eyebrow">ACCESO DEL EQUIPO</span><h1>Panel de administración</h1><p>Ingresá con la cuenta de Supabase autorizada por la inmobiliaria.</p><form onSubmit={onSubmit}><label>Email<input type="email" autoComplete="username" required value={login.email} onChange={(e) => setLogin({ ...login, email: e.target.value })}/></label><label>Contraseña<input type="password" autoComplete="current-password" required value={login.password} onChange={(e) => setLogin({ ...login, password: e.target.value })}/></label><button className="admin-primary-button" type="submit" disabled={loading}>{loading ? <LoaderCircle className="spin" size={16}/> : <ShieldCheck size={16}/>} Iniciar sesión</button></form><small>El registro de usuarios está deshabilitado en esta pantalla.</small></main></div>;
+  return <div className="admin-login-page"><AdminHeader/><main className="admin-login-card"><span className="admin-login-icon"><ShieldCheck size={25}/></span><span className="admin-eyebrow">ACCESO DEL EQUIPO</span><h1>Panel de administración</h1><p>Ingresá con la cuenta de Supabase autorizada por la inmobiliaria.</p><form onSubmit={onSubmit}><label>Email<input type="email" autoComplete="username" required value={login.email} onChange={(e) => setLogin({ ...login, email: e.target.value })}/></label><label>Contraseña<input type="password" autoComplete="current-password" required value={login.password} onChange={(e) => setLogin({ ...login, password: e.target.value })}/></label><button className="admin-primary-button" type="submit" disabled={loading}>{loading ? <LoaderCircle className="spin" size={16}/> : <ShieldCheck size={16}/>} Iniciar sesión</button></form><small>El registro de usuarios está deshabilitado en esta pantalla.</small></main></div>;
 }
-function SetupMessage() { return <div className="admin-login-page"><SiteHeader/><main className="admin-login-card setup-card"><span className="admin-login-icon"><AlertTriangle size={25}/></span><span className="admin-eyebrow">FALTA CONFIGURACIÓN</span><h1>Conectá Supabase</h1><p>Definí <code>VITE_SUPABASE_URL</code> y <code>VITE_SUPABASE_ANON_KEY</code> en `.env.local` para desarrollo o en GitHub Actions para publicar. Aplicá primero <code>supabase/schema.sql</code> y creá primero el usuario dueño en Supabase Auth y luego asignale el rol owner.</p><a className="admin-secondary-button" href="https://supabase.com/dashboard" target="_blank" rel="noreferrer">Abrir Supabase</a></main></div>; }
-function AccessDenied({ onSignOut, loading }: { onSignOut: () => void; loading: boolean }) { return <div className="admin-login-page"><SiteHeader/><main className="admin-login-card"><span className="admin-login-icon"><ShieldCheck size={25}/></span><h1>{loading ? "Verificando acceso…" : "Acceso no autorizado"}</h1><p>{loading ? "Consultando los permisos de esta cuenta." : "La cuenta inició sesión, pero todavía no tiene un rol habilitado. Solicitá autorización al dueño o administrador del sistema."}</p>{!loading && <button className="admin-secondary-button" type="button" onClick={onSignOut}><LogOut size={15}/> Cerrar sesión</button>}</main></div>; }
-function AdminLoading() { return <div className="admin-login-page"><SiteHeader/><div className="admin-loading"><LoaderCircle className="spin" size={25}/> Cargando acceso…</div></div>; }
+function SetupMessage() { return <div className="admin-login-page"><AdminHeader/><main className="admin-login-card setup-card"><span className="admin-login-icon"><AlertTriangle size={25}/></span><span className="admin-eyebrow">FALTA CONFIGURACIÓN</span><h1>Conectá Supabase</h1><p>Definí <code>VITE_SUPABASE_URL</code> y <code>VITE_SUPABASE_ANON_KEY</code> en `.env.local` para desarrollo o en GitHub Actions para publicar. Aplicá primero <code>supabase/schema.sql</code> y creá primero el usuario dueño en Supabase Auth y luego asignale el rol owner.</p><a className="admin-secondary-button" href="https://supabase.com/dashboard" target="_blank" rel="noreferrer">Abrir Supabase</a></main></div>; }
+function AccessDenied({ onSignOut, loading }: { onSignOut: () => void; loading: boolean }) { return <div className="admin-login-page"><AdminHeader onSignOut={onSignOut}/><main className="admin-login-card"><span className="admin-login-icon"><ShieldCheck size={25}/></span><h1>{loading ? "Verificando acceso…" : "Acceso no autorizado"}</h1><p>{loading ? "Consultando los permisos de esta cuenta." : "La cuenta inició sesión, pero todavía no tiene un rol habilitado. Solicitá autorización al dueño o administrador del sistema."}</p>{!loading && <button className="admin-secondary-button" type="button" onClick={onSignOut}><LogOut size={15}/> Cerrar sesión</button>}</main></div>; }
+function AdminLoading() { return <div className="admin-login-page"><AdminHeader/><div className="admin-loading"><LoaderCircle className="spin" size={25}/> Cargando acceso…</div></div>; }
 function EmptyState({ title, detail }: { title: string; detail: string }) { return <div className="admin-empty"><span><ClipboardList size={21}/></span><strong>{title}</strong><p>{detail}</p></div>; }
 
 

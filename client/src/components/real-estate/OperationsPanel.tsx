@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { AlertCircle, Calculator, Check, CircleDollarSign, Plus, Save, WalletCards } from "lucide-react";
+import { Calculator, Check, CircleDollarSign, Pencil, Plus, Save, Trash2, WalletCards, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase, type PropertyRow } from "@/lib/supabase";
 
 type FinanceType = "income" | "expense" | "owner_payment" | "agency_profit" | "commission";
 type FinanceStatus = "pending" | "completed" | "voided";
 type FinanceRow = { id: string; property_id: string | null; type: FinanceType; description: string; amount: number | string; currency: "USD" | "ARS"; status: FinanceStatus; occurred_at: string; notes: string };
-
 type Props = { properties: PropertyRow[]; session: Session; canManageFinance: boolean };
 const typeNames: Record<FinanceType, string> = { income: "Ingreso", expense: "Salida", owner_payment: "Pago a dueño", agency_profit: "Ganancia Riviera", commission: "Comisión" };
 const statusNames: Record<FinanceStatus, string> = { pending: "Pendiente", completed: "Realizado", voided: "Anulado" };
@@ -17,33 +16,53 @@ const daysSince = (value: string) => Math.floor((Date.now() - new Date(value).ge
 
 export default function OperationsPanel({ properties, session, canManageFinance }: Props) {
   const [finance, setFinance] = useState<FinanceRow[]>([]);
+  const [currencyView, setCurrencyView] = useState<"ARS" | "USD">("ARS");
   const [draft, setDraft] = useState(emptyFinance);
   const [calc, setCalc] = useState({ sale: "", owner: "", expenses: "", commission: "5", currency: "USD" as "USD" | "ARS" });
+  const [usdRate, setUsdRate] = useState("");
+  const [selected, setSelected] = useState<string[]>([]);
+  const [editing, setEditing] = useState<FinanceRow | null>(null);
+  const [editDraft, setEditDraft] = useState(emptyFinance);
+  const [saving, setSaving] = useState(false);
   const load = async () => {
     if (!supabase) return;
     const { data, error } = await supabase.from("financial_transactions").select("id, property_id, type, description, amount, currency, status, occurred_at, notes").order("occurred_at", { ascending: false }).limit(100);
     if (error) toast.error(`No se pudieron cargar finanzas: ${error.message}`);
     setFinance((data ?? []) as FinanceRow[]);
+    setSelected((current) => current.filter((id) => (data ?? []).some((row) => row.id === id)));
   };
   useEffect(() => { void load(); }, []);
-  const alerts = useMemo(() => properties.filter((property) => property.status === "published" && property.created_at && daysSince(property.created_at) >= 90), [properties]);
   const totals = useMemo(() => finance.reduce((acc, row) => {
     if (row.status === "completed") acc[row.currency][row.type] += Number(row.amount);
     return acc;
-  }, {
-    USD: { income: 0, expense: 0, owner_payment: 0, agency_profit: 0, commission: 0 },
-    ARS: { income: 0, expense: 0, owner_payment: 0, agency_profit: 0, commission: 0 },
-  } as Record<"USD" | "ARS", Record<FinanceType, number>>), [finance]);
+  }, { USD: { income: 0, expense: 0, owner_payment: 0, agency_profit: 0, commission: 0 }, ARS: { income: 0, expense: 0, owner_payment: 0, agency_profit: 0, commission: 0 } } as Record<"USD" | "ARS", Record<FinanceType, number>>), [finance]);
   const sale = Number(calc.sale) || 0;
   const owner = Number(calc.owner) || 0;
   const expenses = Number(calc.expenses) || 0;
   const commissionAmount = sale * ((Number(calc.commission) || 0) / 100);
   const agencyProfit = commissionAmount - expenses;
+  const convertedSale = Number(usdRate) > 0 ? (calc.currency === "USD" ? sale * Number(usdRate) : sale / Number(usdRate)) : null;
+  const visibleFinance = finance.filter((row) => row.currency === currencyView);
+  const visibleSelection = visibleFinance.filter((row) => selected.includes(row.id));
   const addFinance = async (event: FormEvent) => {
     event.preventDefault();
     if (!supabase || !canManageFinance || !draft.description.trim() || Number(draft.amount) < 0) return;
+    setSaving(true);
     const { error } = await supabase.from("financial_transactions").insert({ ...draft, amount: Number(draft.amount), property_id: draft.property_id || null, created_by: session.user.id });
     if (error) toast.error(error.message); else { toast.success("Movimiento registrado"); setDraft(emptyFinance); await load(); }
+    setSaving(false);
+  };
+  const startEdit = (row: FinanceRow) => {
+    setEditing(row);
+    setEditDraft({ type: row.type, description: row.description, amount: String(row.amount), currency: row.currency, property_id: row.property_id ?? "", notes: row.notes ?? "" });
+  };
+  const saveEdit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!supabase || !canManageFinance || !editing || !editDraft.description.trim() || !Number.isFinite(Number(editDraft.amount)) || Number(editDraft.amount) < 0) return;
+    setSaving(true);
+    const { error } = await supabase.from("financial_transactions").update({ ...editDraft, description: editDraft.description.trim(), amount: Number(editDraft.amount), property_id: editDraft.property_id || null }).eq("id", editing.id);
+    if (error) toast.error(error.message); else { toast.success("Movimiento actualizado"); setEditing(null); await load(); }
+    setSaving(false);
   };
   const updateStatus = async (row: FinanceRow) => {
     if (!supabase || !canManageFinance) return;
@@ -51,11 +70,36 @@ export default function OperationsPanel({ properties, session, canManageFinance 
     const { error } = await supabase.from("financial_transactions").update({ status, completed_at: status === "completed" ? new Date().toISOString() : null }).eq("id", row.id);
     if (error) toast.error(error.message); else { toast.success(status === "completed" ? "Movimiento marcado como realizado" : "Movimiento reabierto"); await load(); }
   };
+  const deleteOne = async (row: FinanceRow) => {
+    if (!supabase || !canManageFinance || !window.confirm(`¿Eliminar el movimiento “${row.description}” por ${money(Number(row.amount), row.currency)}? Esta acción no se puede deshacer.`)) return;
+    const { error } = await supabase.from("financial_transactions").delete().eq("id", row.id);
+    if (error) toast.error(error.message); else { toast.success("Movimiento eliminado"); await load(); }
+  };
+  const deleteSelected = async () => {
+    if (!supabase || !canManageFinance || !visibleSelection.length || !window.confirm(`¿Eliminar los ${visibleSelection.length} movimientos seleccionados de ${currencyView}? Esta acción no se puede deshacer.`)) return;
+    const { error } = await supabase.from("financial_transactions").delete().in("id", visibleSelection.map((row) => row.id));
+    if (error) toast.error(error.message); else { toast.success(`${visibleSelection.length} movimientos eliminados`); setSelected([]); await load(); }
+  };
+  const deleteAll = async () => {
+    if (!supabase || !canManageFinance || !finance.length) return;
+    const typed = window.prompt(`Se eliminarán TODOS los movimientos de caja, incluidos los que no están cargados en esta vista. Escribí ELIMINAR TODO para confirmar.`);
+    if (typed !== "ELIMINAR TODO") { if (typed !== null) toast.error("Confirmación incorrecta; no se borró nada."); return; }
+    const { error } = await supabase.from("financial_transactions").delete().not("id", "is", null);
+    if (error) toast.error(error.message); else { toast.success("Se eliminaron todos los movimientos operativos de caja"); setSelected([]); await load(); }
+  };
+  const toggleSelected = (id: string) => setSelected((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
+  const allVisibleSelected = visibleFinance.length > 0 && visibleFinance.every((row) => selected.includes(row.id));
+  const toggleAllVisible = () => setSelected((current) => allVisibleSelected ? current.filter((id) => !visibleFinance.some((row) => row.id === id)) : [...new Set([...current, ...visibleFinance.map((row) => row.id)])]);
+
   return <section className="admin-operations-page">
-    <div className="operations-alert-grid"><article className="operations-summary-card"><span><WalletCards size={18} /></span><small>Ingresos realizados</small><strong>{money(totals.ARS.income, "ARS")}</strong><strong>{money(totals.USD.income, "USD")}</strong><p>Acumulado separado por moneda</p></article><article className="operations-summary-card"><span><CircleDollarSign size={18} /></span><small>Ganancia Riviera</small><strong>{money(totals.ARS.agency_profit + totals.ARS.commission, "ARS")}</strong><strong>{money(totals.USD.agency_profit + totals.USD.commission, "USD")}</strong><p>Pesos y dólares por separado</p></article><article className={`operations-summary-card ${alerts.length ? "is-warning" : ""}`}><span><AlertCircle size={18} /></span><small>Alertas de 90 días</small><strong>{alerts.length}</strong><p>Sin eliminar propiedades</p></article></div>
-    {alerts.length > 0 && <div className="operations-alert-box"><AlertCircle size={18} /><div><strong>Propiedades que requieren revisión comercial</strong><p>{alerts.map((property) => <span key={property.id}>{property.title} · {daysSince(property.created_at)} días</span>)}</p></div></div>}
-    <div className="operations-grid"><section className="admin-panel-card"><div className="admin-panel-heading"><div><h2><Calculator size={19} /> Calculadora interna</h2><p>Estimá comisión, pago al dueño y margen de Riviera.</p></div></div><div className="operations-calculator-grid"><label>Moneda<select value={calc.currency} onChange={(e) => setCalc({ ...calc, currency: e.target.value as "USD" | "ARS" })}><option value="ARS">Pesos argentinos (ARS)</option><option value="USD">Dólares (USD)</option></select></label><label>Precio de operación<input type="number" min="0" value={calc.sale} onChange={(e) => setCalc({ ...calc, sale: e.target.value })} /></label><label>Pago al dueño<input type="number" min="0" value={calc.owner} onChange={(e) => setCalc({ ...calc, owner: e.target.value })} /></label><label>Gastos<input type="number" min="0" value={calc.expenses} onChange={(e) => setCalc({ ...calc, expenses: e.target.value })} /></label><label>Comisión %<input type="number" min="0" max="100" step="0.1" value={calc.commission} onChange={(e) => setCalc({ ...calc, commission: e.target.value })} /></label></div><div className="calculator-result-grid"><span>Comisión estimada<strong>{money(commissionAmount, calc.currency)}</strong></span><span>Ganancia Riviera<strong>{money(agencyProfit, calc.currency)}</strong></span><span>Resultado dueño<strong>{money(Math.max(0, owner || sale - commissionAmount), calc.currency)}</strong></span></div><small className="admin-subline">La calculadora es interna y no mezcla ARS con USD.</small></section>
-    <section className="admin-panel-card"><div className="admin-panel-heading"><div><h2><Plus size={19} /> Registrar movimiento</h2><p>Los cambios quedan auditados y se marcan por color.</p></div></div><form className="operations-finance-form" onSubmit={addFinance}><select value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value as FinanceType })}>{Object.entries(typeNames).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select><input required placeholder="Descripción" value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} /><input required type="number" min="0" step="0.01" placeholder="Importe" value={draft.amount} onChange={(e) => setDraft({ ...draft, amount: e.target.value })} /><select value={draft.currency} onChange={(e) => setDraft({ ...draft, currency: e.target.value as "USD" | "ARS" })}><option>USD</option><option>ARS</option></select><select value={draft.property_id} onChange={(e) => setDraft({ ...draft, property_id: e.target.value })}><option value="">Sin propiedad</option>{properties.map((property) => <option key={property.id} value={property.id}>{property.title}</option>)}</select><button className="admin-primary-button" type="submit" disabled={!canManageFinance}><Save size={15} /> Registrar</button></form></section></div>
-    <section className="admin-panel-card"><div className="admin-panel-heading"><div><h2>Movimientos y pagos</h2><p>Ingresos, salidas, pagos a dueños y ganancia de la inmobiliaria.</p></div><span className="admin-count-pill">{finance.length} registros</span></div>{finance.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr><th>Concepto</th><th>Tipo</th><th>Importe</th><th>Estado</th><th>Fecha</th><th>Acción</th></tr></thead><tbody>{finance.map((row) => <tr key={row.id}><td><strong>{row.description}</strong><small className="admin-subline">{properties.find((property) => property.id === row.property_id)?.title ?? "Sin propiedad"}</small></td><td>{typeNames[row.type]}</td><td>{money(Number(row.amount), row.currency)}</td><td><span className={`finance-status finance-${row.status}`}>{statusNames[row.status]}</span></td><td>{new Date(row.occurred_at).toLocaleDateString("es-AR")}</td><td><button type="button" className="admin-row-actions" onClick={() => void updateStatus(row)}><Check size={15} /> {row.status === "completed" ? "Reabrir" : "Marcar realizado"}</button></td></tr>)}</tbody></table></div> : <div className="admin-empty"><span><WalletCards size={21} /></span><strong>Sin movimientos registrados</strong><p>Registrá el primer ingreso, gasto o pago.</p></div>}</section>
+    <div className="operations-alert-grid"><article className="operations-summary-card"><span><WalletCards size={18} /></span><small>Ingresos realizados</small><strong>{money(totals.ARS.income, "ARS")}</strong><strong>{money(totals.USD.income, "USD")}</strong><p>Acumulado separado por moneda</p></article><article className="operations-summary-card"><span><CircleDollarSign size={18} /></span><small>Ganancia Riviera</small><strong>{money(totals.ARS.agency_profit + totals.ARS.commission, "ARS")}</strong><strong>{money(totals.USD.agency_profit + totals.USD.commission, "USD")}</strong><p>Pesos y dólares por separado</p></article></div>
+    <div className="operations-grid"><section className="admin-panel-card"><div className="admin-panel-heading"><div><h2><Calculator size={19} /> Calculadora interna</h2><p>Elegí pesos o dólares; los cálculos se mantienen en la moneda seleccionada.</p></div></div><div className="operations-calculator-grid"><label>Moneda de cálculo<select value={calc.currency} onChange={(e) => setCalc({ ...calc, currency: e.target.value as "USD" | "ARS" })}><option value="ARS">Pesos argentinos (ARS)</option><option value="USD">Dólares (USD)</option></select></label><label>Cotización actual · ARS por 1 USD<input type="number" min="0.01" step="0.01" inputMode="decimal" placeholder="Ingresá la cotización vigente" value={usdRate} onChange={(e) => setUsdRate(e.target.value)} /></label><label>Precio de operación<input type="number" min="0" value={calc.sale} onChange={(e) => setCalc({ ...calc, sale: e.target.value })} /></label><label>Pago al dueño<input type="number" min="0" value={calc.owner} onChange={(e) => setCalc({ ...calc, owner: e.target.value })} /></label><label>Gastos<input type="number" min="0" value={calc.expenses} onChange={(e) => setCalc({ ...calc, expenses: e.target.value })} /></label><label>Comisión %<input type="number" min="0" max="100" step="0.1" value={calc.commission} onChange={(e) => setCalc({ ...calc, commission: e.target.value })} /></label></div><div className="calculator-result-grid"><span>Comisión estimada<strong>{money(commissionAmount, calc.currency)}</strong></span><span>Ganancia Riviera<strong>{money(agencyProfit, calc.currency)}</strong></span><span>Resultado dueño<strong>{money(Math.max(0, owner || sale - commissionAmount), calc.currency)}</strong></span></div>{convertedSale !== null && <p className="finance-conversion">Equivalencia del precio: <strong>{money(sale, calc.currency)}</strong> ≈ <strong>{money(convertedSale, calc.currency === "USD" ? "ARS" : "USD")}</strong> · Cotización ingresada: 1 USD = {money(Number(usdRate), "ARS")}</p>}<small className="admin-subline">La cotización la ingresás vos; no se toma automáticamente de internet. Los totales no mezclan ARS con USD.</small></section>
+    <section className="admin-panel-card"><div className="admin-panel-heading"><div><h2><Plus size={19} /> Registrar movimiento</h2><p>Los cambios quedan auditados y se marcan por color.</p></div></div><form className="operations-finance-form" onSubmit={addFinance}><select aria-label="Tipo de movimiento" value={draft.type} onChange={(e) => setDraft({ ...draft, type: e.target.value as FinanceType })}>{Object.entries(typeNames).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select><input required placeholder="Descripción" value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} /><input required type="number" min="0" step="0.01" placeholder="Importe" value={draft.amount} onChange={(e) => setDraft({ ...draft, amount: e.target.value })} /><select aria-label="Moneda" value={draft.currency} onChange={(e) => setDraft({ ...draft, currency: e.target.value as "USD" | "ARS" })}><option>USD</option><option>ARS</option></select><select aria-label="Propiedad asociada" value={draft.property_id} onChange={(e) => setDraft({ ...draft, property_id: e.target.value })}><option value="">Sin propiedad</option>{properties.map((property) => <option key={property.id} value={property.id}>{property.title}</option>)}</select><button className="admin-primary-button" type="submit" disabled={!canManageFinance || saving}><Save size={15} /> Registrar</button></form></section></div>
+    <section className="admin-panel-card"><div className="admin-panel-heading"><div><h2>Movimientos y pagos</h2><p>Ingresos, salidas, pagos a dueños y ganancia de la inmobiliaria, separados por moneda.</p></div><span className="admin-count-pill">{finance.length} registros recientes</span></div><div className="finance-currency-tabs" role="tablist" aria-label="Moneda de movimientos"><button type="button" role="tab" aria-selected={currencyView === "ARS"} className={currencyView === "ARS" ? "active" : ""} onClick={() => setCurrencyView("ARS")}>Pesos argentinos · ARS <span>{finance.filter((row) => row.currency === "ARS").length}</span></button><button type="button" role="tab" aria-selected={currencyView === "USD"} className={currencyView === "USD" ? "active" : ""} onClick={() => setCurrencyView("USD")}>Dólares · USD <span>{finance.filter((row) => row.currency === "USD").length}</span></button></div>
+      {editing && <form className="finance-edit-form" onSubmit={saveEdit}><div className="finance-edit-title"><strong>Editar movimiento</strong><button type="button" className="admin-icon-button" aria-label="Cerrar edición" onClick={() => setEditing(null)}><X size={17}/></button></div><div className="operations-finance-form"><select aria-label="Tipo" value={editDraft.type} onChange={(e) => setEditDraft({ ...editDraft, type: e.target.value as FinanceType })}>{Object.entries(typeNames).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select><input required aria-label="Descripción" placeholder="Descripción" value={editDraft.description} onChange={(e) => setEditDraft({ ...editDraft, description: e.target.value })}/><input required aria-label="Importe" type="number" min="0" step="0.01" value={editDraft.amount} onChange={(e) => setEditDraft({ ...editDraft, amount: e.target.value })}/><select aria-label="Moneda" value={editDraft.currency} onChange={(e) => setEditDraft({ ...editDraft, currency: e.target.value as "USD" | "ARS" })}><option>USD</option><option>ARS</option></select><select aria-label="Propiedad" value={editDraft.property_id} onChange={(e) => setEditDraft({ ...editDraft, property_id: e.target.value })}><option value="">Sin propiedad</option>{properties.map((property) => <option key={property.id} value={property.id}>{property.title}</option>)}</select><button type="submit" className="admin-primary-button" disabled={saving}><Save size={15}/> Guardar cambios</button><input className="finance-notes-input" aria-label="Notas" placeholder="Notas (opcional)" value={editDraft.notes} onChange={(e) => setEditDraft({ ...editDraft, notes: e.target.value })}/></div></form>}
+      {canManageFinance && visibleFinance.length > 0 && <div className="finance-bulk-toolbar"><label><input type="checkbox" checked={allVisibleSelected} onChange={toggleAllVisible}/> Seleccionar los {visibleFinance.length} de esta moneda</label><span>{visibleSelection.length} seleccionados</span><button type="button" className="admin-secondary-button" onClick={() => void deleteSelected()} disabled={!visibleSelection.length}><Trash2 size={15}/> Eliminar seleccionados</button><button type="button" className="finance-delete-all" onClick={() => void deleteAll()}>Eliminar todos los movimientos</button></div>}
+      {visibleFinance.length ? <div className="admin-table-wrap"><table className="admin-table"><thead><tr>{canManageFinance && <th aria-label="Selección"></th>}<th>Concepto</th><th>Tipo</th><th>Importe</th><th>Estado</th><th>Fecha</th>{canManageFinance && <th>Acciones</th>}</tr></thead><tbody>{visibleFinance.map((row) => <tr key={row.id}>{canManageFinance && <td><input type="checkbox" aria-label={`Seleccionar ${row.description}`} checked={selected.includes(row.id)} onChange={() => toggleSelected(row.id)}/></td>}<td><strong>{row.description}</strong><small className="admin-subline">{properties.find((property) => property.id === row.property_id)?.title ?? "Sin propiedad"}</small></td><td>{typeNames[row.type]}</td><td>{money(Number(row.amount), row.currency)}</td><td><span className={`finance-status finance-${row.status}`}>{statusNames[row.status]}</span></td><td>{new Date(row.occurred_at).toLocaleDateString("es-AR")}</td>{canManageFinance && <td><div className="finance-row-buttons"><button type="button" className="finance-edit-button" onClick={() => startEdit(row)} aria-label={`Editar ${row.description}`}><Pencil size={15}/> Editar</button><button type="button" className="finance-edit-button" onClick={() => void updateStatus(row)}><Check size={15}/>{row.status === "completed" ? "Reabrir" : "Realizado"}</button><button type="button" className="admin-row-delete" aria-label={`Eliminar ${row.description}`} onClick={() => void deleteOne(row)}><Trash2 size={15}/></button></div></td>}</tr>)}</tbody></table></div> : <div className="admin-empty"><span><WalletCards size={21} /></span><strong>Sin movimientos en {currencyView}</strong><p>Registrá el primer ingreso, gasto o pago en esta moneda.</p></div>}
+      {finance.length === 100 && <small className="finance-list-note">Se muestran los 100 movimientos más recientes. “Eliminar todos” incluye también los registros anteriores no cargados en esta lista.</small>}
+    </section>
   </section>;
 }
