@@ -2159,3 +2159,41 @@ html[data-theme="dark"] .property-phone-link { color: #b6c1d5; }
 @media (prefers-reduced-motion: reduce) {
   .hero-actions .button { transition-duration: .01ms !important; }
 }
+
+
+/* Submenús móviles en flujo: se abren bajo Comprar/Alquilar y nunca salen del panel. */
+@media (max-width: 600px) {
+  .site-header .header-nav {
+    box-sizing: border-box;
+    width: min(var(--menu-ancho-movil, 250px), calc(100vw - 24px));
+    max-width: calc(100vw - 24px);
+  }
+  .site-header .header-operation-menu { min-width: 0; align-items: stretch; }
+  .site-header .header-category-submenu {
+    position: static;
+    inset: auto;
+    grid-column: 1 / -1;
+    width: auto;
+    max-width: 100%;
+    min-width: 0;
+    margin: 2px 4px 8px;
+    justify-self: stretch;
+  }
+  .site-header .header-category-subtitle { white-space: normal; }
+  .app-shell:not(.admin-shell) { max-width: 100%; overflow-x: clip; }
+}
+
+/* El pie queda como texto normal del documento, sin franja ni navegación que desborde. */
+.site-footer-compact {
+  width: 100%;
+  max-width: 1192px;
+  margin: 0 auto;
+  padding: 18px 24px max(18px, env(safe-area-inset-bottom));
+  color: #748091;
+  text-align: center;
+}
+.site-footer-compact p { margin: 0; font-size: 11px; line-height: 1.5; }
+html[data-theme="dark"] .site-footer-compact { color: #aeb9cf; }
+@media (max-width: 600px) {
+  .site-footer-compact { padding-right: max(16px, env(safe-area-inset-right)); padding-left: max(16px, env(safe-area-inset-left)); }
+}
