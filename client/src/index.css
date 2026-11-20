@@ -2197,3 +2197,31 @@ html[data-theme="dark"] .site-footer-compact { color: #aeb9cf; }
 @media (max-width: 600px) {
   .site-footer-compact { padding-right: max(16px, env(safe-area-inset-right)); padding-left: max(16px, env(safe-area-inset-left)); }
 }
+
+
+/* El pie permanece en el flujo del documento y reorganiza su contenido sin crear scroll lateral. */
+.footer-bottom-minimal,
+.footer-bottom-minimal > * { min-width: 0; max-width: 100%; }
+.footer-email-link { white-space: normal; overflow-wrap: anywhere; word-break: break-word; }
+.footer-social-icons { min-width: 0; flex-wrap: nowrap; justify-content: center; }
+@media (max-width: 600px) {
+  .footer-bottom-minimal {
+    width: 100%;
+    grid-template-columns: minmax(0,1fr) auto;
+    grid-template-areas: "brand copyright" "email socials";
+    gap: 8px 10px;
+  }
+  .footer-email-link { justify-self: start; max-width: 100%; font-size: 10px; }
+  .footer-social-icons { justify-self: end; }
+}
+@media (max-width: 380px) {
+  .footer-bottom-minimal {
+    grid-template-columns: minmax(0,1fr);
+    grid-template-areas: "brand" "email" "socials" "copyright";
+    justify-items: center;
+    gap: 9px;
+  }
+  .footer-email-link { justify-self: center; text-align: center; }
+  .footer-social-icons { justify-self: center; }
+  .footer-copyright { justify-self: center; }
+}
