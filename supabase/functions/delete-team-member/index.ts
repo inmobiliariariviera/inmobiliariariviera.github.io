@@ -85,7 +85,13 @@ Deno.serve(async (request: Request) => {
     .select("id,email,full_name,role")
     .eq("id", targetUserId)
     .maybeSingle();
-  if (targetError || !targetData) return json(404, { error: "No se encontró la cuenta del equipo." });
+  if (targetError) {
+    console.error("delete-team-member: target profile lookup failed", { code: targetError.code, message: targetError.message });
+    return json(500, { error: "No se pudo verificar el perfil de esa cuenta. No se eliminó nada; actualizá los datos y volvé a intentar." });
+  }
+  if (!targetData) {
+    return json(404, { error: "El perfil ya no aparece en el equipo. Actualicé el listado; seleccioná nuevamente la cuenta. No se eliminó nada." });
+  }
   const target = targetData as Profile;
 
   // Never remove an owner. An administrator cannot remove another administrator.

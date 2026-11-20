@@ -411,7 +411,9 @@ export default function Admin() {
         if (error) {
           let message = error.message;
           if (error.context instanceof Response) {
-            try { const response = await error.context.clone().json() as { error?: string }; if (response.error) message = response.error; } catch { /* Keep the original function error. */ }
+            const response = error.context.clone();
+            try { const result = await response.json() as { error?: string }; if (result.error) message = result.error; } catch { /* Keep the original function error. */ }
+            if (response.status === 404) await loadWorkspace();
           }
           throw new Error(message);
         }
