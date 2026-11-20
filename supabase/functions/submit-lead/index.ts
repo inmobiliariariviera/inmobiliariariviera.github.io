@@ -103,7 +103,7 @@ Deno.serve(async (request) => {
     }
     if (allowed !== true) return jsonResponse({ error: "Alcanzaste el límite de consultas. Probá más tarde." }, 429, cors);
 
-    const { error: insertError } = await admin.from("leads").insert({
+    const { data: lead, error: insertError } = await admin.from("leads").insert({
       name,
       email: email || null,
       phone: phone || null,
@@ -113,11 +113,20 @@ Deno.serve(async (request) => {
       stage: "new",
       assigned_to: null,
       created_by: null,
-    });
+    }).select("id").single();
     if (insertError) {
       console.error("Lead insertion failed");
       return jsonResponse({ error: "No se pudo registrar la consulta. Probá nuevamente." }, 500, cors);
     }
+    const automationRows = [];
+    if (email) automationRows.push({ lead_id: lead.id, channel: "email", template_key: "welcome_inquiry", status: "queued" });
+    if (phone) automationRows.push({ lead_id: lead.id, channel: "whatsapp", template_key: "welcome_inquiry", status: "queued" });
+    if (automationRows.length) {
+      const { error: automationError } = await admin.from("welcome_automations").upsert(automationRows, { onConflict: "lead_id,channel,template_key", ignoreDuplicates: true });
+      if (automationError) console.error("Welcome automation queue failed");
+    }
+    const { error: eventError } = await admin.from("lead_events").insert({ lead_id: lead.id, event_type: "welcome_queued", note: "Consulta recibida desde la web; bienvenida preparada para el canal disponible." });
+    if (eventError) console.error("Lead event creation failed");
     return jsonResponse({ success: true }, 200, cors);
   } catch (error) {
     console.error("Public lead function failed", error instanceof Error ? error.message : "Unknown error");

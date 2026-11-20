@@ -1479,3 +1479,61 @@ html[data-theme="dark"] .review-card { background: #1c2745; border-color: #34436
 html[data-theme="dark"] .review-form input, html[data-theme="dark"] .review-form select, html[data-theme="dark"] .review-form textarea { background: #111a32; border-color: #3a4a76; color: #edf1ff; }
 @media (max-width: 760px) { .reviews-section { margin: 0 24px 48px; padding: 28px 22px; } .reviews-heading { align-items: flex-start; flex-direction: column; } .reviews-google-button { width: 100%; } .reviews-layout { grid-template-columns: 1fr; } }
 @media (max-width: 480px) { .reviews-section { margin-left: 16px; margin-right: 16px; padding: 24px 16px; } .review-card-top { align-items: flex-start; flex-direction: column; gap: 7px; } }
+
+/* CRM operativo: caja, calculadora y alertas de publicación */
+.admin-operations-page { display: grid; gap: 18px; }
+.operations-alert-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.operations-summary-card { padding: 18px; border: 1px solid #e2e7ef; border-radius: 14px; background: #fff; box-shadow: 0 10px 28px rgba(29,44,131,.05); }
+.operations-summary-card.is-warning { border-color: #d7a33e; background: #fffaf0; }
+.operations-summary-card > span { display: grid; place-items: center; width: 34px; height: 34px; margin-bottom: 12px; border-radius: 10px; background: #eef1fa; color: #25358a; }
+.operations-summary-card small, .operations-summary-card p { display: block; color: #6d7685; font-size: 11px; }
+.operations-summary-card strong { display: block; margin: 5px 0; color: #18233d; font-size: 24px; }
+.operations-summary-card p { margin: 0; }
+.operations-alert-box { display: flex; gap: 12px; padding: 14px 16px; border: 1px solid #e5bd63; border-radius: 12px; background: #fff7df; color: #704f12; }
+.operations-alert-box p { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 5px 0 0; font-size: 12px; }
+.operations-grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 18px; }
+.operations-calculator-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
+.operations-calculator-grid label { display: grid; gap: 5px; color: #596579; font-size: 12px; font-weight: 700; }
+.operations-calculator-grid input { min-height: 38px; padding: 0 10px; border: 1px solid #dbe2ec; border-radius: 8px; }
+.calculator-result-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; margin-top: 14px; }
+.calculator-result-grid span { padding: 10px; border-radius: 9px; background: #f3f5fb; color: #637087; font-size: 10px; }
+.calculator-result-grid strong { display: block; margin-top: 4px; color: #1d2c83; font-size: 14px; }
+.operations-finance-form { display: grid; grid-template-columns: 1fr 1.5fr 1fr 75px; gap: 8px; }
+.operations-finance-form input, .operations-finance-form select { min-width: 0; min-height: 38px; padding: 0 9px; border: 1px solid #dbe2ec; border-radius: 8px; background: #fff; }
+.finance-status { display: inline-flex; min-height: 26px; align-items: center; padding: 0 9px; border-radius: 999px; font-size: 10px; font-weight: 800; }
+.finance-pending { background: #fff1c9; color: #8c6414; }
+.finance-completed { background: #dcf6e6; color: #1d7546; }
+.finance-voided { background: #f8dddd; color: #9a3e3e; }
+@media (max-width: 900px) { .operations-grid { grid-template-columns: 1fr; } }
+@media (max-width: 650px) { .operations-alert-grid { grid-template-columns: 1fr; } .operations-finance-form { grid-template-columns: 1fr 1fr; } .calculator-result-grid { grid-template-columns: 1fr; } }
+.faq-section { max-width: 1120px; margin: 0 auto; padding: 64px 24px 20px; }
+.faq-section .section-heading-row > svg { color: #b18a4c; }
+.faq-list { display: grid; gap: 8px; max-width: 860px; }
+.faq-item { border: 1px solid #e0e5ed; border-radius: 12px; background: rgba(255,255,255,.82); overflow: hidden; }
+.faq-item button { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 16px; padding: 17px 18px; border: 0; background: transparent; color: #24314d; text-align: left; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.faq-item button svg { flex: 0 0 auto; transition: transform .2s ease; }
+.faq-item.is-open button svg { transform: rotate(180deg); }
+.faq-item p { margin: -3px 18px 17px; color: #697589; font-size: 13px; line-height: 1.7; }
+.property-live-preview { display: grid; grid-template-columns: 170px minmax(0,1fr); gap: 14px; align-items: center; margin-top: 18px; padding: 14px; border: 1px solid #dfe5ee; border-radius: 13px; background: #f8f9fc; }
+.property-live-preview > .admin-eyebrow { grid-column: 1 / -1; }
+.property-live-preview img, .property-live-preview-empty { width: 170px; height: 125px; border-radius: 10px; object-fit: cover; background: #e9edf4; }
+.property-live-preview-empty { display: grid; place-items: center; align-content: center; gap: 7px; color: #8893a5; font-size: 10px; text-align: center; }
+.property-live-preview small, .property-live-preview p { color: #738095; font-size: 10px; }
+.property-live-preview h4 { margin: 5px 0; color: #1f2b44; font: 700 20px/1.1 Georgia, serif; }
+.property-live-preview p { margin: 0 0 10px; }
+.property-live-preview strong { color: #25358a; font-size: 16px; }
+.crm-contact-form { grid-template-columns: repeat(4, minmax(0,1fr)); align-items: center; }
+.crm-contact-form strong { grid-column: 1 / -1; }
+.lead-priority-pill { display: inline-flex; padding: 4px 8px; border-radius: 999px; font-size: 10px; font-weight: 800; }
+.priority-high { background: #ffe0dc; color: #a23f34; }
+.priority-normal { background: #e9edfb; color: #334793; }
+.priority-low { background: #e6f4ea; color: #317044; }
+@media (max-width: 900px) { .operations-grid, .crm-contact-form { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 650px) { .operations-alert-grid { grid-template-columns: 1fr; } .operations-finance-form, .crm-contact-form { grid-template-columns: 1fr; } .calculator-result-grid { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .property-live-preview { grid-template-columns: 1fr; } .property-live-preview > .admin-eyebrow { grid-column: auto; } .property-live-preview img, .property-live-preview-empty { width: 100%; height: 170px; } }
+html[data-theme="dark"] .operations-summary-card, html[data-theme="dark"] .property-live-preview { border-color: #303949; background: #171e29; }
+html[data-theme="dark"] .operations-summary-card strong, html[data-theme="dark"] .property-live-preview h4 { color: #eef2fb; }
+html[data-theme="dark"] .operations-calculator-grid input, html[data-theme="dark"] .operations-finance-form input, html[data-theme="dark"] .operations-finance-form select { border-color: #3a4557; background: #10151e; color: #edf1f8; }
+html[data-theme="dark"] .faq-item { border-color: #303949; background: #171e29; }
+html[data-theme="dark"] .faq-item button { color: #edf1f8; }
+html[data-theme="dark"] .faq-item p { color: #aeb9ca; }

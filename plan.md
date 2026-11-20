@@ -60,3 +60,35 @@ Estructura del proyecto:
 
 ## Ampliación: operación organizada y auditoría
 El panel incluirá resumen operativo, consultas/contactos (CRM), seguimientos con vencimiento y auditoría. Las consultas del formulario de ficha se guardan en Supabase y aparecen en el panel con etapas nuevo, contactado, visita, negociación, ganado o perdido; también se pueden incorporar contactos manualmente. Seguimientos con fecha y estado pendiente/completado pueden asociarse a una consulta o propiedad. La auditoría registrará de forma append-only creación/edición/cambio de estado/eliminación de propiedades, leads y tareas, con actor, fecha, entidad y snapshots anterior/nuevo; RLS permitirá lectura sólo a administradores y sólo triggers de base de datos insertarán eventos. El dashboard resume inventario, consultas nuevas, seguimientos vencidos/próximos y actividad reciente.
+
+
+## Ampliación: CRM inmobiliario y control operativo
+
+La ampliación conserva la web pública y convierte `/#/admin` en un CRM privado con módulos de embudo, contactos, propiedades, finanzas, calculadora y alertas. La base seguirá siendo Supabase Auth + Postgres + Storage + RLS; el navegador sólo usará la publishable key.
+
+### Alcance funcional
+
+- Embudo comercial configurable: Nuevo, Contactado, Visita, Negociación, Ganado y Perdido, con métricas de conversión por etapa, origen, propiedad y período. Las estrategias se mostrarán como recomendaciones operativas basadas en datos observables: tiempos de respuesta, etapa con mayor caída, fuente con mejor conversión y propiedades con más consultas.
+- Contactos enriquecidos con presupuesto declarado, moneda, modalidad de pago, tipo de operación, interés, urgencia, zona, etiquetas, nivel de prioridad y consentimiento de contacto. La segmentación será comercial y declarada por el contacto; no se inferirá nivel socioeconómico sensible a partir de nombre, domicilio u otras señales.
+- Seguimiento automático de bienvenida: al crear un contacto desde la web se registra una automatización pendiente, se asigna una respuesta/plantilla de bienvenida y se crea el primer seguimiento. El envío externo real queda desacoplado para conectarlo a un proveedor de email o WhatsApp autorizado, sin guardar credenciales en el frontend.
+- Centro de respuestas frecuentes: biblioteca editable de preguntas y respuestas, con búsqueda y copia rápida desde el detalle de cada contacto; se registran las respuestas usadas para medir qué dudas aparecen y qué contenidos convierten.
+- Vista previa en vivo del editor de propiedades: el panel mostrará la ficha mientras se completan datos y se seleccionan imágenes, sin publicar ni subir archivos hasta guardar.
+- Calculadora interna: precio/comisión, gastos, pago a propietario, margen de Riviera y resultado neto; permite guardar un cálculo asociado a una propiedad u operación si el usuario lo desea.
+- Finanzas y auditoría: ingresos, salidas, pagos a propietarios, comisiones y porcentaje de ganancia, con estado pendiente/realizado/anulado, color por estado, notas, fecha y asociación a propiedad/contacto. Sólo owner/admin podrá crear, editar o anular movimientos; la auditoría será append-only.
+- Alertas de publicación: cada propiedad publicada conservará fecha de publicación y fecha objetivo a 90 días. Al llegar el plazo se mostrará una alerta persistente en el panel y se podrá crear un seguimiento; nunca se eliminará automáticamente la propiedad.
+
+### Modelo propuesto
+
+Se añadirán tablas `contact_profiles`/campos CRM sobre `leads`, `sales_funnel_events`, `welcome_automations`, `faq_entries`, `financial_transactions`, `calculator_runs` y `property_alerts` o columnas equivalentes en `properties`. Cada tabla tendrá índices, RLS por rol y triggers de `updated_at`/auditoría. Las migraciones serán idempotentes y se aplicarán mediante el SQL del proyecto Supabase.
+
+### Diseño
+
+El panel mantendrá la identidad editorial de RIVIERA, pero incorporará un resumen de operación con tarjetas de conversión, alertas y caja; tablas con filtros; chips de color para estados financieros; un tablero de embudo; y un editor de propiedad dividido entre formulario y vista previa. En móvil los módulos se apilan y los estados conservan contraste accesible.
+
+### Entrega por fases
+
+Fase 1: migración segura de datos, tipos Supabase, embudo enriquecido, contactos segmentables y dashboard comercial.
+
+Fase 2: vista previa de propiedades, calculadora, finanzas y auditoría de movimientos.
+
+Fase 3: alertas de 90 días, biblioteca FAQ, automatización de bienvenida y validación integral del panel.

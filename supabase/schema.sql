@@ -421,3 +421,8 @@ using (
 -- insert into public.profiles (id, email, full_name, role)
 -- select id, email, 'Dueño', 'owner' from auth.users where email = 'dueno@tu-dominio.com'
 -- on conflict (id) do update set role = excluded.role, email = excluded.email;
+
+-- La ampliación operativa del CRM se mantiene como migración versionada en
+-- supabase/migrations/202611200001_crm_operativo.sql. Aplicarla después del
+-- esquema base para agregar segmentación declarada, eventos, bienvenida, FAQ,
+-- calculadora, finanzas y alertas de 90 días sin eliminar propiedades.
