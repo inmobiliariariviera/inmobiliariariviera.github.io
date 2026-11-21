@@ -47,7 +47,7 @@ export function usePublicProperties(): PublicPropertiesState {
           setState({
             properties: safeRows.map(propertyFromRow),
             loading: false,
-            error: "No se pudieron cargar algunas fotos. Intentá actualizar la página.",
+            error: null,
             isDemo: false,
           });
         });
