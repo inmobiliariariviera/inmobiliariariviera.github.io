@@ -1,22 +1,20 @@
-import { Copy, Phone, Share2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { ArrowDown, Copy, MessageSquareText, Phone, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import type { Property } from "@/data/properties";
 import { formatPrice, pricePerUnit } from "@/data/properties";
-import { BUSINESS_PHONE_TEL, createWhatsAppUrl } from "@/lib/contact";
+import { BUSINESS_PHONE_DISPLAY, BUSINESS_PHONE_TEL, createWhatsAppUrl } from "@/lib/contact";
 import WhatsAppIcon from "./WhatsAppIcon";
 
 export default function PropertyAside({ property }: { property: Property }) {
   const isRental = property.operation === "Alquiler";
-  const [commissionRate, setCommissionRate] = useState("3");
-  const [additionalCosts, setAdditionalCosts] = useState("0");
-  const estimate = useMemo(() => {
-    const rate = Number(commissionRate);
-    const costs = Number(additionalCosts);
-    const commission = Number.isFinite(rate) && rate >= 0 ? property.price * rate / 100 : 0;
-    const extra = Number.isFinite(costs) && costs >= 0 ? costs : 0;
-    return { commission, extra, net: Math.max(0, property.price - commission - extra) };
-  }, [additionalCosts, commissionRate, property.price]);
+
+  const scrollToInquiry = () => {
+    const inquiry = document.getElementById("property-inquiry-form");
+    if (!inquiry) return;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    inquiry.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" });
+    window.setTimeout(() => document.getElementById("lead-name")?.focus({ preventScroll: true }), reducedMotion ? 0 : 500);
+  };
 
   const shareProperty = async () => {
     const url = window.location.href;
@@ -57,17 +55,11 @@ export default function PropertyAside({ property }: { property: Property }) {
           {!property.demo && property.status === "published" && <span className="property-status-published">Publicado</span>}
         </div>
         <div className="contact-actions">
-          <a className="button button-primary" href={BUSINESS_PHONE_TEL}><Phone size={17} /> Contactar</a>
+          {!property.demo ? <button className="button button-primary property-inquiry-cta" type="button" onClick={scrollToInquiry}><MessageSquareText size={17} /> Consultar esta propiedad <ArrowDown size={15} /></button> : <a className="button button-primary" href={BUSINESS_PHONE_TEL}><Phone size={17} /> Contactar</a>}
           <a className="button button-whatsapp" href={createWhatsAppUrl(`Hola, me interesa esta propiedad: ${property.title}.`)} target="_blank" rel="noopener noreferrer"><WhatsAppIcon size={17} /> WhatsApp</a>
           <button className="button button-secondary" type="button" onClick={shareProperty}><Share2 size={17} /> Compartir</button>
         </div>
-      </section>
-      <section className="property-calculator" aria-labelledby="calculator-heading">
-        <div className="calculator-heading"><div><span className="eyebrow">ESTIMACIÓN</span><h2 id="calculator-heading">Calculadora de operación</h2></div><span className="calculator-badge">Orientativa</span></div>
-        <p className="calculator-intro">Ajustá los valores para entender cómo podría componerse el importe. No reemplaza una cotización profesional ni contempla impuestos o gastos de escritura.</p>
-        <div className="calculator-fields"><label>Comisión estimada (%)<input type="number" min="0" max="100" step="0.1" value={commissionRate} onChange={(event) => setCommissionRate(event.target.value)} /></label><label>Otros gastos ({property.currency})<input type="number" min="0" step="100" value={additionalCosts} onChange={(event) => setAdditionalCosts(event.target.value)} /></label></div>
-        <dl className="calculator-breakdown"><div><dt>Precio de referencia</dt><dd>{formatPrice(property.price, property.currency)}</dd></div><div><dt>Comisión ({commissionRate || "0"}%)</dt><dd>− {formatPrice(estimate.commission, property.currency)}</dd></div><div><dt>Otros gastos</dt><dd>− {formatPrice(estimate.extra, property.currency)}</dd></div></dl>
-        <div className="calculator-result"><span>Importe estimado neto</span><strong>{formatPrice(estimate.net, property.currency)}</strong></div>
+        {!property.demo && <a className="property-phone-link" href={BUSINESS_PHONE_TEL}><Phone size={14} /> También podés llamarnos: {BUSINESS_PHONE_DISPLAY}</a>}
       </section>
       <button className="copy-link-button" type="button" onClick={async () => { try { await navigator.clipboard.writeText(window.location.href); toast.success("Enlace copiado"); } catch { toast.error("No se pudo copiar el enlace."); } }}><Copy size={14} /> Copiar enlace de esta propiedad</button>
     </aside>

@@ -60,4 +60,6 @@ La marca RIVIERA está configurada con el isotipo montañoso recibido. El correo
 
 La versión actual incluye un panel de gestión en `/#/admin`, CRM de consultas, agenda de seguimientos, bitácora automática y equipo con cuatro cargos: `owner`, `admin`, `manager` y `secretary`. Para activar la conexión, seguí la guía [README-GITHUB-PAGES.md](README-GITHUB-PAGES.md): configurar Supabase, ejecutar `supabase/schema.sql`, crear la cuenta dueña inicial y guardar `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` en GitHub Actions. La clave `service_role` nunca debe exponerse en el navegador.
 
+La página principal también incluye un formulario público de reseñas. Las reseñas se guardan como pendientes en `public.reviews` y el equipo puede aprobarlas, ocultarlas o eliminarlas desde la pestaña `Reseñas` del panel. El botón de Google Maps usa `GOOGLE_REVIEW_URL` en `client/src/components/real-estate/ReviewsSection.tsx`; reemplazá ese valor por el enlace exacto “Pedir reseñas” de tu Perfil de Empresa de Google para dirigir a los clientes a la ficha correcta.
+
 `pnpm build:static` genera el sitio en `dist/public`; `.github/workflows/deploy.yml` publica ese directorio en GitHub Pages al enviar cambios a `main`. Las rutas hash permiten actualizar directamente el panel y las fichas sin configurar reescrituras de servidor.

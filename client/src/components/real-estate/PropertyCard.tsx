@@ -1,4 +1,4 @@
-import { ArrowUpRight, BedDouble, MapPin, Ruler } from "lucide-react";
+import { ArrowUpRight, BedDouble, ImageOff, MapPin, Ruler } from "lucide-react";
 import { Link } from "wouter";
 import type { Property } from "@/data/properties";
 import { formatPrice } from "@/data/properties";
@@ -8,7 +8,7 @@ export default function PropertyCard({ property }: { property: Property }) {
     <article className="property-card">
       <Link href={`/propiedad/${property.slug}`} className="property-card-link" aria-label={`Ver ${property.title}`}>
         <div className="property-card-image-wrap">
-          <img className="property-card-image" src={property.images[0]} alt={property.demo ? `${property.category} — fotografía ilustrativa` : property.title} loading="lazy" />
+          {property.images[0] ? <img className="property-card-image" src={property.images[0]} alt={property.demo ? `${property.category} — fotografía ilustrativa` : property.title} loading="lazy" /> : <div className="property-card-image-empty" role="img" aria-label="Fotografía no disponible"><ImageOff size={28}/><span>Foto no disponible</span></div>}
           {!property.demo && <span className={`demo-ribbon listing-status-${property.status ?? "published"}`}>{property.status === "sold" ? "Vendido" : property.status === "rented" ? "Alquilado" : "Publicado"}</span>}
           <span className="operation-pill">{property.operation}</span>
         </div>
