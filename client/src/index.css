@@ -2226,3 +2226,36 @@ html[data-theme="dark"] .site-footer-compact { color: #aeb9cf; }
   .footer-social-icons { justify-self: center; }
   .footer-copyright { justify-self: center; }
 }
+
+/* Navegación móvil: controles amplios y paneles fáciles de usar. */
+@media (max-width: 600px) {
+  .site-header { --menu-ancho-movil: min(360px, calc(100vw - 24px)); --panel-edge: 12px; }
+  .header-inner { padding-inline: 12px; }
+  .header-tools { gap: 7px; }
+  .header-theme-toggle,
+  .header-search-toggle,
+  .mobile-menu-toggle { width: 44px; height: 44px; min-width: 44px; border-radius: 12px; }
+  .mobile-menu-toggle { border-color: rgba(29,44,131,.16); background: rgba(255,255,255,.9); box-shadow: 0 3px 12px rgba(29,44,131,.08); }
+  .mobile-menu-toggle[aria-expanded="true"] { background: #eef1fa; border-color: rgba(29,44,131,.28); }
+  .header-nav,
+  .site-header.search-open .header-nav { right: 12px; width: min(360px, calc(100vw - 24px)); max-width: calc(100vw - 24px); padding: 9px; gap: 4px; border-radius: 16px; }
+  .header-nav > a,
+  .header-operation-menu > a,
+  .header-contact-toggle,
+  .header-reviews-link { min-height: 48px; padding-inline: 13px; border-radius: 11px; font-size: 13px; }
+  .header-operation-menu { grid-template-columns: minmax(0, 1fr) 40px; }
+  .header-category-toggle { width: 40px; height: 48px; flex-basis: 40px; }
+  .header-category-option { min-height: 42px; padding-inline: 11px; font-size: 12px; }
+  .site-header.search-open .header-search-popover,
+  .header-search-popover.is-open { position: absolute; z-index: 160; top: calc(100% + 8px); left: 12px; right: 12px; width: auto; max-width: none; min-width: 0; height: 54px; padding: 5px; gap: 6px; border: 1px solid #dfe5f1; border-radius: 14px; background: rgba(255,255,255,.98); box-shadow: 0 14px 34px rgba(24,38,81,.15); }
+  .site-header.search-open .header-search-popover input,
+  .header-search-popover.is-open input { height: 42px; padding-inline: 10px; font-size: 14px; opacity: 1; transform: none; }
+  .site-header.search-open .header-search-submit,
+  .header-search-popover.is-open .header-search-submit { width: 42px; height: 42px; flex-basis: 42px; border-radius: 10px; opacity: 1; transform: none; }
+}
+@media (max-width: 380px) {
+  .header-inner { padding-inline: 10px; }
+  .site-header { --panel-edge: 10px; --menu-ancho-movil: calc(100vw - 20px); }
+  .header-nav, .site-header.search-open .header-nav { right: 10px; width: calc(100vw - 20px); max-width: calc(100vw - 20px); }
+  .site-header.search-open .header-search-popover, .header-search-popover.is-open { left: 10px; right: 10px; }
+}
