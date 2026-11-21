@@ -19,11 +19,11 @@ export default function AdminPinDialog({ title, description, actionLabel, onCanc
     if (!supabase || !pin || checking) return;
     setChecking(true);
     const { data, error } = await supabase.rpc("verify_profit_pin", { p_pin: pin });
-    if (error) toast.error(`No se pudo validar la contraseña: ${error.message}`);
+    if (error) toast.error(`No se pudo validar el PIN administrativo: ${error.message}`);
     else if (data === true) {
       try { await onAuthorized(pin); onCancel(); }
       catch (actionError) { toast.error(actionError instanceof Error ? actionError.message : "No se pudo completar la operación."); }
-    } else toast.error("Contraseña incorrecta o acceso temporalmente bloqueado.");
+    } else toast.error("PIN administrativo incorrecto o acceso temporalmente bloqueado.");
     setPin("");
     setChecking(false);
   };
@@ -35,11 +35,11 @@ export default function AdminPinDialog({ title, description, actionLabel, onCanc
       <h2 id="admin-pin-title">{title}</h2>
       <p id="admin-pin-description">{description}</p>
       <form onSubmit={(event) => void submit(event)}>
-        <label htmlFor="admin-delete-pin">Contraseña de confirmación</label>
-        <input id="admin-delete-pin" type="password" autoComplete="current-password" autoFocus required value={pin} onChange={(event) => setPin(event.target.value)} />
+        <label htmlFor="admin-security-pin">PIN administrativo</label>
+        <input id="admin-security-pin" name="admin-security-pin" type="password" autoComplete="off" autoFocus required value={pin} onChange={(event) => setPin(event.target.value)} />
         <div className="admin-pin-actions"><button type="button" className="admin-secondary-button" onClick={onCancel} disabled={checking}>Cancelar</button><button type="submit" className="finance-delete-all" disabled={checking || !pin}>{checking ? "Verificando…" : actionLabel}</button></div>
       </form>
-      <small>La contraseña se valida en Supabase y no queda guardada en el navegador.</small>
+      <small>Ingresá el PIN administrativo configurado en Supabase. No es tu contraseña de inicio de sesión; el PIN no queda guardado en el navegador.</small>
     </section>
   </div>;
 }

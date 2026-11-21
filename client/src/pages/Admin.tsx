@@ -406,7 +406,7 @@ export default function Admin() {
     if (typed !== "BORRAR CUENTA") { if (typed !== null) toast.error("No coincidió el texto de confirmación; no se eliminó la cuenta."); return; }
     setPendingPinAction({
       title: "Eliminar cuenta definitivamente",
-      description: `Se eliminará permanentemente la cuenta de ${memberLabel}. No se borrarán sus registros operativos, pero se quitarán sus asignaciones. Esta acción no se puede deshacer. Confirmá con la clave administrativa.`,
+      description: `Se eliminará permanentemente la cuenta de ${memberLabel}. No se borrarán sus registros operativos, pero se quitarán sus asignaciones. Esta acción no se puede deshacer. Confirmá con el PIN administrativo de caja; no es la contraseña de inicio de sesión.`,
       actionLabel: "Borrar cuenta",
       run: async (pin) => {
         const { data, error } = await supabase!.functions.invoke("delete-team-member", { body: { target_user_id: member.id, pin } });
