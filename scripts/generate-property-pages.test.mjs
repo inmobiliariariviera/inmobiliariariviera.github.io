@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { assertPublicPropertyCatalog, renderPropertyPage, renderSitemap } from "./generate-property-pages.mjs";
 
-const baseHtml = `<!doctype html><html><head><title>Portal</title><meta name="description" content="Base" /><meta name="robots" content="index,follow" /></head><body><div id="root"></div></body></html>`;
+const baseHtml = `<!doctype html><html><head><title>Portal</title><meta name="description" content="Base" /><meta name="robots" content="index,follow" /><meta property="og:type" content="website" /><meta property="og:title" content="Portada RIVIERA" /><meta property="og:description" content="Descripción de portada." /><meta property="og:url" content="https://inmobiliariariviera.github.io/" /><meta property="og:site_name" content="RIVIERA Inmobiliaria" /><meta property="og:image" content="https://inmobiliariariviera.github.io/riviera-brand-mark.png" /><meta name="twitter:card" content="summary_large_image" /><meta name="twitter:title" content="Portada RIVIERA" /><meta name="twitter:description" content="Descripción de portada." /><meta name="twitter:image" content="https://inmobiliariariviera.github.io/riviera-brand-mark.png" /><link rel="canonical" href="https://inmobiliariariviera.github.io/" /></head><body><div id="root"></div></body></html>`;
 
 const property = {
   slug: "casa-en-traslasierra",
@@ -26,6 +26,14 @@ test("renders public property metadata and useful initial HTML without exposing 
   const html = renderPropertyPage(baseHtml, property, "https://inmobiliariariviera.github.io/");
   assert.match(html, /<title>Casa &amp; patio en Traslasierra \| RIVIERA Inmobiliaria<\/title>/);
   assert.match(html, /<link rel="canonical" href="https:\/\/inmobiliariariviera\.github\.io\/propiedad\/casa-en-traslasierra\/">/);
+  assert.equal((html.match(/<link rel="canonical"/g) ?? []).length, 1);
+  assert.equal((html.match(/<meta property="og:url"/g) ?? []).length, 1);
+  assert.equal((html.match(/<meta property="og:title"/g) ?? []).length, 1);
+  assert.equal((html.match(/<meta name="twitter:title"/g) ?? []).length, 1);
+  assert.match(html, /<meta property="og:url" content="https:\/\/inmobiliariariviera\.github\.io\/propiedad\/casa-en-traslasierra\/">/);
+  assert.doesNotMatch(html, /<link rel="canonical" href="https:\/\/inmobiliariariviera\.github\.io\/"/);
+  assert.doesNotMatch(html, /<meta property="og:url" content="https:\/\/inmobiliariariviera\.github\.io\/"/);
+  assert.doesNotMatch(html, /content="Portada RIVIERA"/);
   assert.match(html, /Casa luminosa cerca del valle/);
   assert.match(html, /<h1>Casa &amp; patio en Traslasierra<\/h1>/);
   assert.match(html, /riviera-brand-mark\.png/);

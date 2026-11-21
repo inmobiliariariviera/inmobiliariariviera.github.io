@@ -122,10 +122,13 @@ export function renderPropertyPage(baseHtml, property, siteOrigin = DEFAULT_ORIG
   ].join("\n    ");
 
   return baseHtml
+    .replace(/<meta\s+property="og:[^"]*"[^>]*>/gi, "")
+    .replace(/<meta\s+name="twitter:[^"]*"[^>]*>/gi, "")
+    .replace(/<meta\s+name="robots"[^>]*>/gi, "")
+    .replace(/<link\s+rel="canonical"[^>]*>/gi, "")
     .replace(/<head>/i, '<head>\n    <base href="../../">')
     .replace(/<title>[^<]*<\/title>/i, `<title>${escapeHtml(title)}</title>`)
     .replace(/<meta\s+name="description"\s+content="[^"]*"\s*\/>/i, `<meta name="description" content="${escapeHtml(description)}" />`)
-    .replace(/<meta\s+name="robots"[^>]*>/i, "")
     .replace(/<\/head>/i, `    ${meta}\n  </head>`)
     .replace('<div id="root"></div>', `<div id="root">${fallback}</div>`);
 }
