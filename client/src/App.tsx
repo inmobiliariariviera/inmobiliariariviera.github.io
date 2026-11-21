@@ -13,7 +13,9 @@ import Home from "./pages/Home";
 
 function useGithubPagesLocation(): ReturnType<typeof useHashLocation> {
   const [location, navigate] = useHashLocation();
-  return [location.split("?")[0], navigate];
+  const cleanPath = window.location.pathname.replace(/\/+$/, "") || "/";
+  const currentLocation = window.location.hash ? location : cleanPath;
+  return [currentLocation.split("?")[0], navigate];
 }
 
 function AppRoutes() {

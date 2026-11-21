@@ -92,3 +92,11 @@ Fase 1: migración segura de datos, tipos Supabase, embudo enriquecido, contacto
 Fase 2: vista previa de propiedades, calculadora, finanzas y auditoría de movimientos.
 
 Fase 3: alertas de 90 días, biblioteca FAQ, automatización de bienvenida y validación integral del panel.
+
+## Ampliación: catálogo móvil, confianza y descubribilidad
+
+La mejora pública reutiliza React/TypeScript, Wouter, Supabase y la identidad editorial existente. El catálogo añade filtros combinables de ubicación, operación, tipo, precio/moneda y superficie en m²; el botón abre un panel inferior accesible en móvil y un panel compacto en escritorio. Los valores siguen siendo los del aviso publicado, sin conversiones monetarias inventadas.
+
+Las fichas mantienen el inventario Supabase/fallback y agregan metadatos dinámicos del navegador, URLs públicas limpias con rutas estáticas prerenderizadas en GitHub Pages desde avisos activos consultables con la clave pública, sitemap regenerado en cada build, galería táctil progresiva y una acción de consulta fija en móvil. Las fotos privadas no se insertan en etiquetas Open Graph mediante URL firmada de corta duración; se usa la imagen remota sólo si es permanente y pública, o el isotipo estable. Las nuevas cargas del panel se convierten a WebP y reducen a un máximo de 1920 px antes de subirlas, con fallback seguro al original.
+
+La página principal muestra cuatro fundamentos de servicio solicitados por el usuario —atención personalizada, conocimiento de Traslasierra, acompañamiento documental y contacto directo— sin añadir números ni testimonios. Los estados vacíos permiten pedir avisos por WhatsApp. Se refuerzan contraste, foco, alternativas de texto, controles táctiles, teclado, placeholders, feedback y movimiento reducido, sin cambiar rutas administrativas ni reglas de RLS.

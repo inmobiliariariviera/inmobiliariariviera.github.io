@@ -22,3 +22,14 @@
 - [ ] Cada propiedad publicada conserva fecha de publicación y muestra una alerta al cumplir 90 días; la propiedad no se elimina automáticamente y la alerta puede convertirse en seguimiento.
 - [ ] Las migraciones Supabase son idempotentes, tienen RLS por rol, índices y auditoría append-only; se validan en el proyecto `vejljxoxhlseyzoxbedb` antes de publicar.
 - [ ] El build, las pruebas y la publicación de GitHub Pages se completan sin romper el catálogo público, las reseñas ni el menú móvil.
+
+## Mejoras del catálogo público y fichas inmobiliarias
+- [x] Los filtros permiten combinar ubicación, venta/alquiler, tipo de propiedad, rango de precio y superficie; en móvil se abren en una bandeja inferior cómoda.
+- [x] Cada propiedad ofrece galería con desplazamiento táctil, contador de fotos, botón «Consultar» siempre visible y ficha rápida de precio, ubicación, superficie y operación.
+- [x] El portal muestra indicadores de confianza basados en atención personalizada, conocimiento de Traslasierra, acompañamiento documental y contacto directo; no inventa cifras ni testimonios.
+- [x] Cuando no hay propiedades, el estado explica «Estamos incorporando nuevas oportunidades» y ofrece un botón para recibir avisos por WhatsApp.
+- [x] Se refuerzan contraste, foco visible, textos alternativos, botones táctiles amplios y navegación completa con teclado.
+- [x] Las imágenes usan carga progresiva, placeholders elegantes y compresión para reducir el peso percibido y real en teléfonos.
+- [x] Cada propiedad cuenta con metadatos específicos y títulos descriptivos; los enlaces compartidos por WhatsApp muestran una vista previa correcta de la propiedad.
+  - Las fichas estáticas se generan con el catálogo público; el flujo de GitHub Pages falla en lugar de publicar un sitemap incompleto si faltan las variables de Supabase.
+- [x] Las interacciones ofrecen toasts claros, confirmación al copiar enlaces, estados de carga y animaciones discretas al filtrar o cambiar de sección, respetando movimiento reducido.

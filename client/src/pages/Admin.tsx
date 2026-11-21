@@ -12,6 +12,7 @@ import RentalDossiersPanel from "@/components/real-estate/RentalDossiersPanel";
 import AdminPinDialog from "@/components/real-estate/AdminPinDialog";
 import { formatPrice, type PropertyStatus } from "@/data/properties";
 import { isSupabaseConfigured, supabase, type PropertyRow } from "@/lib/supabase";
+import { optimizePropertyImage } from "@/lib/optimizePropertyImage";
 
 type Role = "owner" | "admin" | "manager" | "secretary" | "user";
 type Tab = "overview" | "properties" | "leads" | "reviews" | "followups" | "operations" | "rentals" | "audit" | "team";
@@ -269,7 +270,8 @@ export default function Admin() {
     setSaving(true);
     const uploadedPaths: string[] = [];
     try {
-      for (const file of imageFiles) {
+      for (const originalFile of imageFiles) {
+        const file = await optimizePropertyImage(originalFile);
         const safeName = file.name.normalize("NFKD").replace(/[^a-zA-Z0-9._-]/g, "-");
         const objectPath = `${session.user.id}/${crypto.randomUUID()}-${safeName}`;
         const { error: uploadError } = await supabase.storage.from("property-images").upload(objectPath, file, { cacheControl: "3600", upsert: false });
