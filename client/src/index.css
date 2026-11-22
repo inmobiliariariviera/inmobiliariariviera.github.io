@@ -2512,3 +2512,23 @@ html[data-theme="dark"] .skeleton-copy span { background: linear-gradient(105deg
   .header-operation-menu > a { width: 100%; justify-content: space-between; }
   .header-operation-menu:hover .header-category-submenu, .header-operation-menu:focus-within .header-category-submenu { display: grid; }
 }
+
+/* Header inspirado en la navegación limpia de la referencia */
+@media (min-width: 601px) {
+  .site-header { height: 76px; background: rgba(255,255,255,.94); border-bottom-color: rgba(29,44,131,.10); box-shadow: 0 4px 20px rgba(29,44,131,.045); }
+  .site-header.is-scrolled { background: rgba(255,255,255,.985); box-shadow: 0 8px 28px rgba(29,44,131,.10); }
+  .header-inner { max-width: 1280px; padding-inline: 32px; }
+  .brand-lockup { gap: 10px; }
+  .brand-mark { width: 76px; height: 36px; flex-basis: 76px; }
+  .header-nav { position: absolute; left: 50%; transform: translateX(-50%); gap: clamp(14px, 1.8vw, 28px); font-size: 10px; font-weight: 750; letter-spacing: .12em; text-transform: uppercase; white-space: nowrap; }
+  .header-nav > a, .header-operation-menu > a { min-height: 34px; padding: 0 2px; border: 0; border-radius: 0; letter-spacing: inherit; }
+  .header-nav > a::before, .header-operation-menu > a::before { display: none; }
+  .header-nav > a:hover, .header-operation-menu > a:hover { color: #1d2c83; transform: none; border-color: transparent; box-shadow: none; }
+  .header-nav > a::after, .header-operation-menu > a::after { content: ""; position: absolute; left: 0; right: 0; bottom: 1px; height: 1px; background: #1d2c83; transform: scaleX(0); transform-origin: center; transition: transform .2s ease; }
+  .header-nav > a:hover::after, .header-nav > a:focus-visible::after, .header-operation-menu > a:hover::after, .header-operation-menu > a:focus-visible::after { transform: scaleX(1); }
+  .header-operation-menu > a { gap: 5px; }
+  .header-operation-menu > a svg { width: 11px; height: 11px; }
+  .header-category-submenu { top: calc(100% + 14px); left: 50%; transform: translateX(-50%); text-transform: none; letter-spacing: normal; }
+  .header-tools { margin-left: auto; }
+  .header-theme-toggle, .header-search-toggle { width: 34px; height: 34px; }
+}
