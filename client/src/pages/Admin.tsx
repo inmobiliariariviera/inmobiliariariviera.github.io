@@ -7,6 +7,7 @@ import {
   Star, Users, WalletCards, X,
 } from "lucide-react";
 import { toast } from "sonner";
+import LeadPipeline from "@/components/real-estate/LeadPipeline";
 import OperationsPanel from "@/components/real-estate/OperationsPanel";
 import RentalDossiersPanel from "@/components/real-estate/RentalDossiersPanel";
 import AdminPinDialog from "@/components/real-estate/AdminPinDialog";
@@ -15,7 +16,7 @@ import { isSupabaseConfigured, supabase, type PropertyRow } from "@/lib/supabase
 import { optimizePropertyImage } from "@/lib/optimizePropertyImage";
 
 type Role = "owner" | "admin" | "manager" | "secretary" | "user";
-type Tab = "overview" | "properties" | "leads" | "reviews" | "followups" | "operations" | "rentals" | "audit" | "team";
+type Tab = "overview" | "pipeline" | "properties" | "leads" | "reviews" | "followups" | "operations" | "rentals" | "audit" | "team";
 type LeadRow = {
   id: string; name: string; email: string | null; phone: string | null; message: string;
   property_id: string | null; stage: string; source: string; created_at: string; budget_max: number | string | null; budget_currency: "USD" | "ARS" | null; financing: string | null; urgency: string | null; preferred_operation: string | null; preferred_zone: string | null; priority: "high" | "normal" | "low"; tags: string[] | null;
@@ -51,6 +52,7 @@ const leadStages: Record<string, string> = {
 const stageOptions = ["new", "contacted", "visit", "negotiation", "won", "lost"];
 const tabs: { id: Tab; label: string; icon: typeof Home }[] = [
   { id: "overview", label: "Resumen", icon: Home },
+  { id: "pipeline", label: "Pipeline", icon: Users },
   { id: "properties", label: "Propiedades", icon: Building2 },
   { id: "leads", label: "Consultas", icon: Users },
   { id: "reviews", label: "Reseñas", icon: Star },
@@ -329,7 +331,7 @@ export default function Admin() {
     if (error) toast.error(error.message); else { toast.success("Consulta agregada al CRM"); setLeadDraft({ name: "", email: "", phone: "", message: "", budget_max: "", budget_currency: "USD", financing: "to_define", urgency: "medium", preferred_operation: "", preferred_zone: "", priority: "normal", tags: "" }); await loadWorkspace(); }
   };
   const updateLeadStage = async (id: string, stage: string) => {
-    if (!isAdmin) return;
+    if (!supabase || !["owner", "admin", "manager", "secretary"].includes(role)) return;
     const { error } = await supabase!.from("leads").update({ stage }).eq("id", id);
     if (error) toast.error(error.message); else { toast.success("Etapa actualizada"); await loadWorkspace(); }
   };
@@ -448,6 +450,7 @@ export default function Admin() {
         <section className="admin-content">
           <header className="admin-topbar"><div><span className="admin-eyebrow">GESTIÓN INMOBILIARIA</span><h1>{visibleTabs.find((item) => item.id === tab)?.label}</h1><p className="admin-welcome">Hola, {profile.full_name || "equipo"}. Elegí una sección para empezar.</p></div><button className="admin-refresh" type="button" onClick={() => void loadWorkspace()} disabled={dataLoading}><RefreshCw size={15} className={dataLoading ? "spin" : ""} /> Actualizar datos</button></header>
           {tab === "overview" && <Overview properties={properties} leads={leads} tasks={followUps} audit={audit} isAdmin={isAdmin} setTab={setTab} />}
+          {tab === "pipeline" && <section className="admin-panel-card"><div className="admin-panel-heading"><div><h2>Pipeline comercial</h2><p>Mové cada prospecto entre etapas; también podés usar el selector de cada tarjeta.</p></div><span className="admin-count-pill">{filteredLeads.length} prospectos</span></div><div className="admin-toolbar"><label className="admin-search"><Search size={15}/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar contacto, teléfono o interés"/></label></div>{filteredLeads.length ? <LeadPipeline leads={filteredLeads} stages={leadStages} onStageChange={(id, stage) => void updateLeadStage(id, stage)} propertyTitle={(propertyId) => properties.find((item) => item.id === propertyId)?.title ?? null}/> : <EmptyState title="No hay prospectos para mostrar" detail="Las consultas del sitio y los contactos agregados por el equipo aparecerán en el pipeline."/>}</section>}
           {tab === "properties" && <section className="admin-panel-card">
             <div className="admin-panel-heading"><div><h2>Inventario de propiedades</h2><p>Administrá precios, fotos, disponibilidad y publicación.</p></div>{canCreateProperties && <button type="button" className="admin-primary-button" onClick={openNewProperty}><Plus size={16} /> Nueva propiedad</button>}</div>
             {editorOpen && <PropertyEditor draft={propertyDraft} setDraft={setPropertyDraft} files={imageFiles} setFiles={setImageFiles} editing={Boolean(editingId)} saving={saving} onCancel={() => { setEditingId(null); setEditorOpen(false); setPropertyDraft(blankProperty); setImageFiles([]); }} onSubmit={saveProperty} />}
