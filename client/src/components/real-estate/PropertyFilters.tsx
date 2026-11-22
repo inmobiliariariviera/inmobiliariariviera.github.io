@@ -44,7 +44,6 @@ export default function PropertyFilters({ idPrefix, values, onChange }: Props) {
         <select id={id("location")} value={values.locationScope} onChange={(event) => onChange("locationScope", event.target.value as LocationScope)}>
           <option value="all">Todas las zonas permitidas</option>
           <option value="traslasierra">{LOCATION_SCOPE_LABELS.traslasierra}</option>
-          <option value="merlo">{LOCATION_SCOPE_LABELS.merlo}</option>
         </select>
       </label>
       <label className="property-filter-field" htmlFor={id("currency")}>

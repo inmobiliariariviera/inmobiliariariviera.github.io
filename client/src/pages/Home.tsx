@@ -49,7 +49,7 @@ export default function Home() {
 
   usePageMetadata({
     title: "Propiedades en Traslasierra | RIVIERA Inmobiliaria",
-    description: "Explorá propiedades en Traslasierra y Merlo. Casas, campos y terrenos en venta o alquiler con atención directa de RIVIERA Inmobiliaria.",
+    description: "Explorá propiedades en Traslasierra, Córdoba. Casas, campos y terrenos en venta o alquiler con atención directa de RIVIERA Inmobiliaria.",
     url: `${PUBLIC_SITE_URL}/`,
     image: BRAND_IMAGE_URL,
   });
@@ -117,7 +117,7 @@ export default function Home() {
         <section className="search-panel search-panel-location-only" aria-label="Buscar propiedades por ubicación" data-scroll-reveal>
           <div className="search-field location-search">
             <label htmlFor="location-search">Ubicación</label>
-            <div className="input-with-icon"><MapPin size={17} /><select id="location-search" value={filters.locationScope} onChange={(event) => updateFilter("locationScope", normalizeLocationScope(event.target.value))} aria-label="Seleccionar una zona permitida"><option value="all">Todas las zonas permitidas</option><option value="traslasierra">Traslasierra · Córdoba</option><option value="merlo">Merlo · San Luis</option></select></div>
+            <div className="input-with-icon"><MapPin size={17} /><select id="location-search" value={filters.locationScope} onChange={(event) => updateFilter("locationScope", normalizeLocationScope(event.target.value))} aria-label="Seleccionar una zona permitida"><option value="all">Todas las zonas permitidas</option><option value="traslasierra">Traslasierra · Córdoba</option></select></div>
           </div>
           <button className="search-submit" type="button" onClick={scrollToListings} aria-label="Ver resultados"><Search size={18} /><span>Buscar</span></button>
         </section>

@@ -1,0 +1,8 @@
+{
+  "routes": [
+    { "path": "/", "title": "RIVIERA | Propiedades en Traslasierra" },
+    { "path": "/propiedad/:slug", "title": "Detalle de propiedad | RIVIERA" },
+    { "path": "/publicar", "title": "Publicar propiedad | RIVIERA" },
+    { "path": "/admin", "title": "Administración | RIVIERA" }
+  ]
+}

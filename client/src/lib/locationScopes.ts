@@ -1,9 +1,8 @@
-export type LocationScope = "all" | "traslasierra" | "merlo";
+export type LocationScope = "all" | "traslasierra";
 
 export const LOCATION_SCOPE_LABELS: Record<LocationScope, string> = {
-  all: "Traslasierra y Merlo",
+  all: "Traslasierra · Córdoba",
   traslasierra: "Traslasierra · Córdoba",
-  merlo: "Merlo · San Luis",
 };
 
 const traslasierraLocalities = [
@@ -37,7 +36,7 @@ function normalize(value: string): string {
 }
 
 export function normalizeLocationScope(value: string | null | undefined): LocationScope {
-  return value === "traslasierra" || value === "merlo" ? value : "all";
+  return value === "traslasierra" ? value : "all";
 }
 
 export function propertyMatchesLocationScope(
@@ -48,9 +47,6 @@ export function propertyMatchesLocationScope(
   const region = normalize(property.region);
   const text = `${location} ${region}`;
   const isTraslasierra = region.includes("traslasierra") || (region.includes("cordoba") && traslasierraLocalities.some((locality) => location.includes(locality)));
-  const isMerlo = text.includes("merlo") && text.includes("san luis");
-
   if (scope === "traslasierra") return isTraslasierra;
-  if (scope === "merlo") return isMerlo;
-  return isTraslasierra || isMerlo;
+  return isTraslasierra;
 }
