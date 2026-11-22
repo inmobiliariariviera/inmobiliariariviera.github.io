@@ -16,6 +16,17 @@ export default function ScrollRevealObserver() {
     }
 
     root.classList.add("has-scroll-reveal");
+    const revealVisibleElements = () => {
+      const viewportHeight = window.innerHeight || root.clientHeight;
+      elements.forEach((element) => {
+        const bounds = element.getBoundingClientRect();
+        if (bounds.top < viewportHeight && bounds.bottom > 0) {
+          element.classList.add("is-revealed");
+        }
+      });
+    };
+    revealVisibleElements();
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
@@ -32,7 +43,17 @@ export default function ScrollRevealObserver() {
       observer.observe(element);
     });
 
-    return () => observer.disconnect();
+    // Never leave page content hidden if an embedded browser or WebView fails to
+    // deliver IntersectionObserver callbacks after the route has changed.
+    const fallbackTimer = window.setTimeout(() => {
+      elements.forEach((element) => element.classList.add("is-revealed"));
+      observer.disconnect();
+    }, 2500);
+
+    return () => {
+      window.clearTimeout(fallbackTimer);
+      observer.disconnect();
+    };
   }, [location]);
 
   return null;
