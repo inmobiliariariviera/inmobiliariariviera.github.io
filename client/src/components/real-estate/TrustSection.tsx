@@ -25,7 +25,7 @@ const servicePrinciples = [
 
 export default function TrustSection() {
   return (
-    <section className="trust-section" aria-labelledby="trust-heading" data-scroll-reveal>
+    <section className="trust-section" id="confianza" aria-labelledby="trust-heading" data-scroll-reveal>
       <div className="trust-intro">
         <span className="eyebrow">UNA ATENCIÓN CERCANA</span>
         <h2 id="trust-heading">Acompañamiento claro, de principio a fin.</h2>

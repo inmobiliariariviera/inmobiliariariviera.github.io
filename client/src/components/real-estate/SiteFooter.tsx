@@ -15,6 +15,13 @@ export default function SiteFooter() {
           <Mail size={15} aria-hidden="true" />
           <span>Gmail: {BUSINESS_EMAIL}</span>
         </a>
+        <nav className="footer-section-links" aria-label="Apartados públicos">
+          <a href="/?seccion=propiedades">Propiedades</a>
+          <a href="/?seccion=confianza">Cómo trabajamos</a>
+          <a href="/?seccion=preguntas">Preguntas</a>
+          <a href="/?seccion=resenas">Reseñas</a>
+          <a href="/?seccion=contacto">Contacto</a>
+        </nav>
         <nav className="footer-social-icons" aria-label="Redes sociales de RIVIERA">
           <a className="footer-social-icon" href={INSTAGRAM_PROFILE_URL} target="_blank" rel="noopener noreferrer" aria-label="Instagram de RIVIERA" title="Instagram">
             <Instagram size={16} aria-hidden="true" />

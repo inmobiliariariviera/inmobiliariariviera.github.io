@@ -108,14 +108,15 @@ export default function SiteHeader() {
     event.currentTarget.style.setProperty("--glow-y", `${event.clientY - rect.top}px`);
   };
 
-  const goToContact = () => {
+  const goToSection = (event: MouseEvent<HTMLAnchorElement>, section: string) => {
+    event.preventDefault();
     closeMenus();
-    if (location === "/") {
-      document.getElementById("contacto")?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-      return;
-    }
-    try { sessionStorage.setItem("portal-scroll-to-contact", "1"); } catch { /* storage can be disabled */ }
-    navigate("/");
+    navigate(`/?seccion=${encodeURIComponent(section)}`);
+    window.setTimeout(() => {
+      const target = document.getElementById(section);
+      if (!target) return;
+      target.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+    }, location === "/" ? 80 : 180);
   };
 
   const submitSearch = (event: FormEvent<HTMLFormElement>) => {
@@ -173,10 +174,13 @@ export default function SiteHeader() {
         </Link>
 
         <nav ref={headerNavRef} className={`header-nav ${menuOpen ? "is-open" : ""}`} aria-label="Navegación principal">
+          <a className="header-section-link header-section-link-featured" href="/?seccion=propiedades" onClick={(event) => goToSection(event, "propiedades")} onMouseMove={updateGlow}>Propiedades</a>
           {renderOperationMenu("venta", "Comprar")}
           {renderOperationMenu("alquiler", "Alquilar")}
+          <a className="header-section-link" href="/?seccion=resenas" onClick={(event) => goToSection(event, "resenas")} onMouseMove={updateGlow}>Reseñas</a>
+          <a className="header-section-link" href="/?seccion=preguntas" onClick={(event) => goToSection(event, "preguntas")} onMouseMove={updateGlow}>Preguntas</a>
+          <a className="header-section-link" href="/?seccion=contacto" onClick={(event) => goToSection(event, "contacto")} onMouseMove={updateGlow}>Contacto</a>
           <a className="header-sell-link" href={createWhatsAppUrl("Hola, quiero vender una propiedad.")} target="_blank" rel="noopener noreferrer" onClick={closeMenus} onMouseMove={updateGlow}>Vender</a>
-          <button className="header-contact-toggle" type="button" onClick={goToContact} onMouseMove={updateGlow}>Contacto</button>
         </nav>
 
         <div className="header-tools">

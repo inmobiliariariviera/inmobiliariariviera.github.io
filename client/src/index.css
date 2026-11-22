@@ -2487,3 +2487,17 @@ html[data-theme="dark"] .skeleton-copy span { background: linear-gradient(105deg
   .progressive-image-element { transition: none !important; }
   .app-shell:not(.admin-shell) *, .app-shell:not(.admin-shell) *::before, .app-shell:not(.admin-shell) *::after { scroll-behavior: auto !important; }
 }
+
+/* Navegación pública compartible */
+#propiedades, #confianza, #preguntas, #resenas, #contacto { scroll-margin-top: 82px; }
+.header-nav { gap: 4px; }
+.header-section-link-featured { color: #1d2c83 !important; font-weight: 750 !important; }
+.header-nav .header-sell-link { min-height: 38px; padding-inline: 16px; color: #fff; background: linear-gradient(135deg, #1d2c83, #4055ad); box-shadow: 0 8px 18px rgba(29,44,131,.18); }
+.header-nav .header-sell-link:hover { color: #fff; border-color: transparent; background: linear-gradient(135deg, #263891, #5267b0); box-shadow: 0 10px 22px rgba(29,44,131,.25); }
+.footer-section-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 16px; width: 100%; order: 4; padding-top: 12px; border-top: 1px solid rgba(29,44,131,.09); }
+.footer-section-links a { color: #64719b; font-size: 11px; font-weight: 650; transition: color .18s ease; }
+.footer-section-links a:hover, .footer-section-links a:focus-visible { color: #1d2c83; }
+@media (max-width: 600px) {
+  .header-nav .header-sell-link { min-height: 44px; justify-content: center; margin-top: 5px; }
+  .footer-section-links { justify-content: flex-start; gap: 10px 14px; }
+}

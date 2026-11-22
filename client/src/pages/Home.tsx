@@ -65,8 +65,13 @@ export default function Home() {
       const query = new URLSearchParams(window.location.hash.split("?")[1] ?? window.location.search.slice(1));
       setFilters(filtersFromUrl());
       setSearchText(query.get("busqueda") ?? "");
+      const section = query.get("seccion");
+      if (section && ["inicio", "busqueda", "propiedades", "ofrecer", "confianza", "preguntas", "resenas", "contacto"].includes(section)) {
+        window.setTimeout(() => document.getElementById(section)?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" }), 80);
+      }
     };
     window.addEventListener("hashchange", syncFiltersFromHash);
+    syncFiltersFromHash();
     return () => window.removeEventListener("hashchange", syncFiltersFromHash);
   }, []);
 
@@ -98,7 +103,7 @@ export default function Home() {
     <div className="app-shell">
       <SiteHeader />
       <main>
-        <section className="home-hero" data-scroll-reveal>
+        <section className="home-hero" id="inicio" data-scroll-reveal>
           <div className="hero-content">
             <span className="eyebrow hero-eyebrow"><span className="eyebrow-dot" /> PROPIEDADES EN TRASLASIERRA</span>
             <h1>Un lugar propio.<br /><em>Una nueva historia.</em></h1>
@@ -114,7 +119,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="search-panel search-panel-location-only" aria-label="Buscar propiedades por ubicación" data-scroll-reveal>
+        <section className="search-panel search-panel-location-only" id="busqueda" aria-label="Buscar propiedades por ubicación" data-scroll-reveal>
           <div className="search-field location-search">
             <label htmlFor="location-search">Ubicación</label>
             <div className="input-with-icon"><MapPin size={17} /><select id="location-search" value={filters.locationScope} onChange={(event) => updateFilter("locationScope", normalizeLocationScope(event.target.value))} aria-label="Seleccionar una zona permitida"><option value="all">Todas las zonas permitidas</option><option value="traslasierra">Traslasierra · Córdoba</option></select></div>
@@ -153,7 +158,7 @@ export default function Home() {
           )}
         </section>
 
-        <section className="sell-banner" data-scroll-reveal>
+        <section className="sell-banner" id="ofrecer" data-scroll-reveal>
           <div><span className="eyebrow">¿TENÉS UNA PROPIEDAD?</span><h2>Tu próximo capítulo<br />puede empezar acá.</h2></div>
           <a className="button button-light" href={createWhatsAppUrl("Hola, quiero ofrecer mi propiedad. Me gustaría conversar sobre la venta o el alquiler.")} target="_blank" rel="noopener noreferrer">Ofrecer mi propiedad por WhatsApp <ArrowRight size={17} /></a>
         </section>
