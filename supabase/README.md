@@ -34,3 +34,8 @@ La aplicación sólo necesita **Project URL** y la clave pública **anon/publish
 Este paquete incluye `submit-lead` y `public-property-images`. Son funciones anónimas intencionales, configuradas con `verify_jwt = false`: la primera valida Turnstile, limita envíos y crea el lead desde el servidor; la segunda firma temporalmente imágenes privadas de propiedades activas. No expongas la `service_role` en el navegador.
 
 Antes de publicar el nuevo frontend, aplicá el `schema.sql` actualizado y desplegá ambas funciones con la CLI. Configurá en los secretos de Supabase `TURNSTILE_SECRET_KEY`, `IP_HASH_SECRET` y `ALLOWED_ORIGINS`; el formato, comandos y pruebas están en [la guía de seguridad y publicación](../SECURITY-DEPLOYMENT.md). Para una instalación existente, hacé backup y coordiná el cambio porque al volver privado el bucket las imágenes públicas antiguas pueden dejar de verse hasta publicar el nuevo sitio.
+
+
+## Cronología del embudo
+
+La migración `migrations/202611220001_lead_timeline.sql` registra de forma automática las altas y cambios de etapa en `lead_events`. Las filas históricas existentes no se reescriben. La tabla se vuelve de sólo lectura para clientes autenticados; los eventos nuevos los escribe el trigger de base de datos. Aplicá esta migración una sola vez en Supabase después de confirmar respaldo y probar el flujo de CRM.

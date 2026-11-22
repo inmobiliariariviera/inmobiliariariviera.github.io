@@ -12,6 +12,7 @@
 
 
 ## CRM inmobiliario y control operativo
+- [x] El panel incluye un pipeline Kanban responsive con seis etapas; el equipo puede mover prospectos arrastrando tarjetas o usando un selector accesible. Supabase registra automáticamente altas y transiciones con etapa anterior, nueva etapa y actor; los clientes autenticados no pueden insertar/editar/borrar eventos directamente y la Edge Function de servicio conserva su capacidad de registrar la bienvenida. Validado con TypeScript, pruebas existentes y build estático; migración aplicada en el proyecto Riviera.
 - [ ] El panel privado conserva el acceso por Supabase Auth y agrega un embudo comercial con etapas, métricas de conversión, origen, propiedad, período y recomendaciones basadas en tiempos de respuesta y caídas por etapa.
 - [ ] Los contactos permiten registrar presupuesto declarado, moneda, modalidad de pago, operación, interés, urgencia, zona, etiquetas, prioridad y consentimiento; la segmentación usa datos comerciales proporcionados y no infiere nivel socioeconómico sensible.
 - [ ] Cada nuevo contacto puede generar un seguimiento y una plantilla de bienvenida; el sistema deja preparado el envío desacoplado para email/WhatsApp sin exponer credenciales en el frontend.
