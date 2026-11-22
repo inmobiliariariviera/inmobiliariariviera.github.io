@@ -3,10 +3,8 @@ import { ArrowRight, CheckCircle2, LoaderCircle, Mail, MessageSquareText, Shield
 import { toast } from "sonner";
 import { createWhatsAppUrl } from "@/lib/contact";
 import { supabase } from "@/lib/supabase";
-import TurnstileWidget from "./TurnstileWidget";
 import WhatsAppIcon from "./WhatsAppIcon";
 
-const turnstileSiteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY?.trim() ?? "";
 const quickQuestions = ["¿Sigue disponible?", "Quiero coordinar una visita", "¿Me cuentan más detalles?"];
 
 type InquiryForm = { name: string; email: string; phone: string; message: string };
@@ -21,8 +19,6 @@ export default function LeadInquiryForm({ propertyId, propertyTitle }: { propert
   const [website, setWebsite] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
-  const [captchaToken, setCaptchaToken] = useState("");
-  const [captchaReset, setCaptchaReset] = useState(0);
   const messageRef = useRef<HTMLTextAreaElement>(null);
   const client = supabase;
   if (!client) return null;
@@ -42,20 +38,12 @@ export default function LeadInquiryForm({ propertyId, propertyTitle }: { propert
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!turnstileSiteKey) {
-      toast.error("El formulario todavía no está configurado. Escribinos por WhatsApp.");
-      return;
-    }
     if (!hasContactMethod) {
       toast.error("Dejanos un email o teléfono para poder responderte.");
       return;
     }
     if (!consent) {
       toast.error("Autorizá el uso de tus datos para poder enviar la consulta.");
-      return;
-    }
-    if (!captchaToken) {
-      toast.error("Completá la verificación antes de enviar.");
       return;
     }
 
@@ -71,7 +59,6 @@ export default function LeadInquiryForm({ propertyId, propertyTitle }: { propert
           ...(propertyId ? { property_id: propertyId } : {}),
           contact_consent: true,
           website,
-          turnstile_token: captchaToken,
         },
       });
       if (error || data?.success !== true) {
@@ -87,8 +74,6 @@ export default function LeadInquiryForm({ propertyId, propertyTitle }: { propert
       toast.error("No se pudo enviar la consulta. Probá nuevamente o escribinos por WhatsApp.");
     } finally {
       setSending(false);
-      setCaptchaToken("");
-      setCaptchaReset((value) => value + 1);
     }
   };
 
@@ -126,8 +111,7 @@ export default function LeadInquiryForm({ propertyId, propertyTitle }: { propert
         <label className="lead-field lead-message-field" htmlFor="lead-message"><span>{propertyId ? "¿Qué te gustaría consultar?" : "Contanos un poco más"}</span><textarea ref={messageRef} id="lead-message" required minLength={3} maxLength={4000} rows={4} value={form.message} onChange={(event) => setForm({ ...form, message: event.target.value })} placeholder="Escribí tu consulta acá…" /></label>
         <label className="lead-honeypot" aria-hidden="true">Sitio web<input tabIndex={-1} autoComplete="off" value={website} onChange={(event) => setWebsite(event.target.value)} /></label>
         <label className="lead-consent"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} /><span>Acepto que Riviera use mis datos únicamente para responder esta consulta.</span></label>
-        {turnstileSiteKey ? <div className="lead-captcha"><TurnstileWidget key={captchaReset} siteKey={turnstileSiteKey} onToken={setCaptchaToken} /></div> : <small className="lead-captcha-warning">La verificación anti-spam requiere configuración antes de habilitar el envío.</small>}
-        <button type="submit" className="button button-primary lead-submit-button" disabled={sending || !turnstileSiteKey || !captchaToken || !consent || !hasContactMethod}>
+        <button type="submit" className="button button-primary lead-submit-button" disabled={sending || !consent || !hasContactMethod}>
           {sending ? <LoaderCircle className="spin" size={17} /> : <ArrowRight size={17} />}
           {sending ? "Enviando tu consulta…" : "Enviar consulta"}
         </button>

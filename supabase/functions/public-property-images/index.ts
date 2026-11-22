@@ -40,7 +40,7 @@ Deno.serve(async (request) => {
       .in("id", propertyIds)
       .in("status", ["published", "sold", "rented"]);
     if (error) {
-      console.error("Public image lookup failed");
+      console.error("Public image lookup failed", { code: error.code, message: error.message });
       return jsonResponse({ error: "No se pudieron cargar las imágenes." }, 503, cors);
     }
 
@@ -63,7 +63,13 @@ Deno.serve(async (request) => {
       const { data, error: signError } = await admin.storage
         .from("property-images")
         .createSignedUrl(path, SIGNED_URL_TTL_SECONDS);
-      if (!signError && data?.signedUrl) signedByPath[path] = data.signedUrl;
+      if (signError) {
+        console.error("Public image signing failed", { code: signError.name, message: signError.message });
+      } else if (data?.signedUrl) {
+        signedByPath[path] = data.signedUrl;
+      } else {
+        console.error("Public image signing returned no URL");
+      }
     }
     for (const [storedPath, normalizedPath] of normalizedByStoredPath) {
       const signedUrl = signedByPath[normalizedPath];

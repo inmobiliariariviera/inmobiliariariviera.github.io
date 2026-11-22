@@ -1934,9 +1934,7 @@ html[data-theme="dark"] .team-invite-form input, html[data-theme="dark"] .team-i
 .app-shell:not(.admin-shell) .lead-inquiry-card form label.lead-honeypot { position: absolute !important; left: -10000px !important; width: 1px !important; height: 1px !important; overflow: hidden !important; }
 .app-shell:not(.admin-shell) .lead-inquiry-card textarea { font: inherit; font-size: 13px; }
 .app-shell:not(.admin-shell) .lead-inquiry-card form .button { min-height: 44px; font-size: 13px; }
-.app-shell:not(.admin-shell) .lead-inquiry-card > small,
-.app-shell:not(.admin-shell) .lead-captcha-warning { display: block; margin-top: 10px; color: #627087; font-size: 12px; line-height: 1.5; }
-.app-shell:not(.admin-shell) .lead-captcha { grid-column: 1 / -1; min-height: 66px; }
+.app-shell:not(.admin-shell) .lead-inquiry-card > small { display: block; margin-top: 10px; color: #627087; font-size: 12px; line-height: 1.5; }
 @media (max-width: 760px) { .app-shell:not(.admin-shell) .contact-section { grid-template-columns: minmax(0,1fr); } }
 @media (max-width: 600px) { .app-shell:not(.admin-shell) .lead-inquiry-card form { grid-template-columns: minmax(0,1fr); } }
 
@@ -2090,8 +2088,6 @@ html[data-theme="dark"] .team-invite-form input, html[data-theme="dark"] .team-i
 .app-shell:not(.admin-shell) .lead-inquiry-card form label.lead-consent input { flex: 0 0 17px; width: 17px; min-width: 17px; height: 17px; min-height: 17px; margin: 1px 0 0; accent-color: #1d2c83; }
 .app-shell:not(.admin-shell) .lead-inquiry-card form label.lead-consent span { flex: 1; }
 .app-shell:not(.admin-shell) .lead-inquiry-card form label.lead-honeypot { position: absolute !important; left: -10000px !important; width: 1px !important; height: 1px !important; overflow: hidden !important; }
-.app-shell:not(.admin-shell) .lead-inquiry-card .lead-captcha { grid-column: 1 / -1; min-height: 66px; }
-.app-shell:not(.admin-shell) .lead-inquiry-card .lead-captcha-warning { grid-column: 1 / -1; display: block; color: #986335; font-size: 12px; line-height: 1.5; }
 .app-shell:not(.admin-shell) .lead-inquiry-card form .lead-submit-button { grid-column: 1 / -1; justify-content: center; min-height: 50px; gap: 9px; border-radius: 12px; font-size: 15px; font-weight: 750; transition: transform .18s ease, box-shadow .18s ease, background .18s ease; }
 .app-shell:not(.admin-shell) .lead-inquiry-card form .lead-submit-button:not(:disabled):hover { transform: translateY(-1px); box-shadow: 0 9px 22px rgba(29,44,131,.19); }
 .app-shell:not(.admin-shell) .lead-inquiry-card form .lead-submit-button:focus-visible { outline: 3px solid rgba(82,103,167,.45); outline-offset: 3px; }

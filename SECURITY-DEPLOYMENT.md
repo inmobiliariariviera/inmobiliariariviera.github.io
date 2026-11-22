@@ -6,13 +6,12 @@ Este repositorio incorpora controles de seguridad en el navegador, Supabase y Gi
 
 1. **Prepará una ventana de cambio y una copia de seguridad.** El SQL cambia `property-images` de público a privado y convierte en rutas internas las URL públicas antiguas que reconoce. Si el frontend viejo permanece activo después de ese cambio, sus fotos almacenadas pueden dejar de mostrarse temporalmente. Conservá una copia de la base y verificá que los objetos de Storage existen antes de continuar.
 2. **Aplicá `supabase/schema.sql` completo** en Supabase → SQL Editor. El esquema elimina la inserción pública directa de leads, crea el rate limit privado, migra las referencias conocidas a las fotos y establece las políticas del bucket privado. Revisá el resultado de cada sentencia antes de seguir.
-3. **Configurá Turnstile y los secretos del backend** según la sección siguiente.
-4. **Desplegá las dos Edge Functions** y probalas antes de actualizar la página pública.
-5. **Actualizá las variables de GitHub, activá Pages mediante GitHub Actions y publicá el frontend.** Hacé luego las pruebas de humo indicadas abajo.
+3. **Aplicá la migración `supabase/migrations/202611220002_edge_function_service_role_minimum_access.sql`.** Otorga exclusivamente al rol interno `service_role` las operaciones que necesitan las funciones de propiedades, CRM y auditoría; no concede acceso a `anon` ni a `authenticated`.
+4. **Configurá los secretos del backend** según la sección siguiente.
+5. **Desplegá las dos Edge Functions** y probalas antes de actualizar la página pública.
+6. **Actualizá las variables de GitHub, activá Pages mediante GitHub Actions y publicá el frontend.** Hacé luego las pruebas de humo indicadas abajo.
 
-## Cloudflare Turnstile y secretos de Supabase
-
-Creá un widget de Cloudflare Turnstile limitado a los dominios reales que servirán el portal. Usá su **Site Key** en el frontend: es pública. Guardala en GitHub → Settings → Secrets and variables → Actions → Variables como `VITE_TURNSTILE_SITE_KEY`, y localmente como `VITE_TURNSTILE_SITE_KEY` en `.env.local`. La **Secret Key** nunca va en el frontend.
+## Secretos de Supabase
 
 Desde la raíz del repositorio, asociá la CLI de Supabase con el proyecto activo y configurá los secretos requeridos por las Edge Functions:
 
@@ -20,12 +19,11 @@ Desde la raíz del repositorio, asociá la CLI de Supabase con el proyecto activ
 supabase login
 supabase link --project-ref TU_PROJECT_REF
 supabase secrets set \
-  TURNSTILE_SECRET_KEY='CLAVE_SECRETA_DE_TURNSTILE' \
   IP_HASH_SECRET='VALOR_ALEATORIO_LARGO' \
   ALLOWED_ORIGINS='https://USUARIO.github.io,https://www.tu-dominio.com'
 ```
 
-Generá `IP_HASH_SECRET` con un generador criptográfico local; por ejemplo, `openssl rand -hex 32`. En `ALLOWED_ORIGINS` anotá sólo los orígenes exactos, separados por comas, sin rutas ni barra final. Incluí cada origen realmente usado, como el dominio personalizado y el host de GitHub Pages. La función valida CORS contra esa lista; además, `submit-lead` valida el hostname de Turnstile.
+Generá `IP_HASH_SECRET` con un generador criptográfico local; por ejemplo, `openssl rand -hex 32`. En `ALLOWED_ORIGINS` anotá sólo los orígenes exactos, separados por comas, sin rutas ni barra final. Incluí cada origen realmente usado, como el dominio personalizado y el host de GitHub Pages. La función valida CORS contra esa lista y `submit-lead` aplica un campo trampa y limita cada origen de red a cinco consultas cada quince minutos.
 
 Supabase proporciona `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` al entorno de las Edge Functions desplegadas. Si la instalación no las tiene disponibles, definilas únicamente como secretos del proyecto/funciones en Supabase. **Nunca** las pongas en `.env.local` del frontend, secretos de GitHub usados para compilar, archivos del repositorio ni variables `VITE_*`. La service-role puede omitir RLS y sólo se usa en el servidor.
 
@@ -36,7 +34,7 @@ supabase functions deploy submit-lead
 supabase functions deploy public-property-images
 ```
 
-La configuración marca `verify_jwt = false` sólo para estas dos funciones porque atienden visitantes anónimos. Eso no constituye autenticación: las funciones validan origen, datos, Turnstile, estado de la propiedad y/o acceso a imágenes en el servidor. El navegador no recibe la service-role. `submit-lead` asigna `source`, etapa y campos de auditoría desde el servidor; la tabla `leads` no admite inserciones anónimas directas.
+La configuración marca `verify_jwt = false` sólo para estas dos funciones porque atienden visitantes anónimos. Eso no constituye autenticación: las funciones validan el origen y los datos; `submit-lead` usa además un campo trampa, limitación de envíos y validación de propiedad activa. Las imágenes sólo se firman para avisos activos. El navegador no recibe la service-role. `submit-lead` asigna `source`, etapa y campos de auditoría desde el servidor; la tabla `leads` no admite inserciones anónimas directas.
 
 ## Variables de GitHub Actions
 
@@ -44,7 +42,6 @@ En GitHub → Settings → Secrets and variables → Actions → Variables, defi
 
 - `VITE_SUPABASE_URL`: URL del proyecto Supabase.
 - `VITE_SUPABASE_ANON_KEY`: clave anon/publishable. Es una clave pública y aparecerá en el JavaScript compilado; la seguridad depende de RLS, no de ocultar esta clave.
-- `VITE_TURNSTILE_SITE_KEY`: Site Key pública de Turnstile.
 
 El workflow fija las acciones a commits SHA completos y limita `GITHUB_TOKEN` a lectura en la compilación; sólo el job de publicación recibe `pages: write` e `id-token: write`. GitHub recomienda permisos mínimos y fijar acciones externas por SHA completo cuando no se usa un lockfile de dependencias de workflows. [1] Los SHA del workflow se contrastaron con sus commits en los repositorios oficiales. [2] [3] [4] [5] [6]
 
@@ -59,8 +56,8 @@ Las políticas del bucket permiten al personal autorizado leer fotos, pero cada 
 ## Pruebas después de publicar
 
 - Abrí el sitio y confirmá que aparecen avisos activos, pero no borradores. Revisá imágenes en fichas y en el panel con una cuenta autorizada.
-- Probá una consulta válida con Turnstile y confirmá que llega al CRM con origen `website`, etapa `new` y la propiedad correcta.
-- Comprobá que el formulario bloquea el envío sin desafío y que un visitante anónimo no puede insertar filas directamente en `leads` ni leer leads, perfiles ajenos o auditoría.
+- Probá una consulta válida y confirmá que llega al CRM con origen `website`, etapa `new` y la propiedad correcta; verificá que el campo trampa no genere filas y que se aplique el límite de cinco consultas cada quince minutos.
+- Comprobá que un visitante anónimo no puede insertar filas directamente en `leads` ni leer leads, perfiles ajenos o auditoría.
 - Confirmá que las fotos del bucket privado sólo se entregan con URL firmada para avisos activos y que un borrador no obtiene URL pública.
 - Verificá que cuentas `user` no entran al panel y que los roles de personal sólo permiten las operaciones previstas.
 - Revisá los logs de las funciones y el workflow. No copies claves ni datos personales a los logs. Configurá MFA para las cuentas de administración de Supabase, GitHub y Cloudflare, y limitá quién puede editar workflows o secretos.

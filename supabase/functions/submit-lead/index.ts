@@ -2,8 +2,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.0";
 
 function getCorsHeaders(request: Request): HeadersInit | null {
   const origin = request.headers.get("origin") ?? "";
-  const allowedOrigins = (Deno.env.get("ALLOWED_ORIGINS") ?? "").split(",").map((value) => value.trim()).filter(Boolean);
-  if (!origin || !allowedOrigins.includes(origin)) return null;
+  const configuredOrigins = (Deno.env.get("ALLOWED_ORIGINS") ?? "").split(",").map((value) => value.trim()).filter(Boolean);
+  const allowedOrigins = new Set(["https://inmobiliariariviera.github.io", ...configuredOrigins]);
+  if (!origin || !allowedOrigins.has(origin)) return null;
   return { "Access-Control-Allow-Origin": origin, "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Max-Age": "86400", "Vary": "Origin" };
 }
 
@@ -56,7 +57,6 @@ Deno.serve(async (request) => {
     const phone = typeof body.phone === "string" ? body.phone.trim() : "";
     const message = typeof body.message === "string" ? body.message.trim() : "";
     const propertyId = typeof body.property_id === "string" ? body.property_id.trim() : "";
-    const turnstileToken = typeof body.turnstile_token === "string" ? body.turnstile_token.trim() : "";
     const contactConsent = body.contact_consent === true;
     const website = typeof body.website === "string" ? body.website.trim() : "";
     // Compatibilidad transitoria con el formulario de ficha del sitio ya publicado.
@@ -67,7 +67,7 @@ Deno.serve(async (request) => {
 
     if (name.length < 2 || name.length > 120 || message.length < 3 || message.length > 4000
       || email.length > 320 || (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-      || phone.length > 80 || (propertyId && !UUID_RE.test(propertyId)) || !turnstileToken
+      || phone.length > 80 || (propertyId && !UUID_RE.test(propertyId))
       || (consentRequired && (!contactConsent || (!email && !phone)))) {
       return jsonResponse({ error: "Revisá los datos, autorizá el contacto e ingresá al menos un medio de contacto." }, 400, cors);
     }
@@ -81,26 +81,6 @@ Deno.serve(async (request) => {
     const admin = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
-
-    const hostnameAllowlist = (Deno.env.get("ALLOWED_ORIGINS") ?? "")
-      .split(",")
-      .map((value) => {
-        try { return new URL(value.trim()).hostname; } catch { return ""; }
-      })
-      .filter(Boolean);
-    const captchaSecret = env("TURNSTILE_SECRET_KEY");
-    const verificationBody = new URLSearchParams({ secret: captchaSecret, response: turnstileToken, remoteip: ip });
-    const verificationResponse = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: verificationBody,
-    });
-    if (!verificationResponse.ok) return jsonResponse({ error: "No se pudo validar el desafío." }, 503, cors);
-    const verification = await verificationResponse.json();
-    if (verification.success !== true || verification.action !== "lead-inquiry"
-      || !hostnameAllowlist.includes(verification.hostname)) {
-      return jsonResponse({ error: "No se pudo validar el desafío. Intentá nuevamente." }, 403, cors);
-    }
 
     if (propertyId) {
       const { data: property, error: propertyError } = await admin
@@ -118,7 +98,7 @@ Deno.serve(async (request) => {
       p_window_seconds: 900,
     });
     if (limitError) {
-      console.error("Lead rate-limit check failed");
+      console.error("Lead rate-limit check failed", { code: limitError.code, message: limitError.message });
       return jsonResponse({ error: "El envío no está disponible temporalmente." }, 503, cors);
     }
     if (allowed !== true) return jsonResponse({ error: "Alcanzaste el límite de consultas. Probá más tarde." }, 429, cors);
@@ -136,7 +116,7 @@ Deno.serve(async (request) => {
       created_by: null,
     }).select("id").single();
     if (insertError) {
-      console.error("Lead insertion failed");
+      console.error("Lead insertion failed", { code: insertError.code, message: insertError.message });
       return jsonResponse({ error: "No se pudo registrar la consulta. Probá nuevamente." }, 500, cors);
     }
     const automationRows = [];
@@ -144,10 +124,10 @@ Deno.serve(async (request) => {
     if (phone) automationRows.push({ lead_id: lead.id, channel: "whatsapp", template_key: "welcome_inquiry", status: "queued" });
     if (automationRows.length) {
       const { error: automationError } = await admin.from("welcome_automations").upsert(automationRows, { onConflict: "lead_id,channel,template_key", ignoreDuplicates: true });
-      if (automationError) console.error("Welcome automation queue failed");
+      if (automationError) console.error("Welcome automation queue failed", { code: automationError.code, message: automationError.message });
     }
     const { error: eventError } = await admin.from("lead_events").insert({ lead_id: lead.id, event_type: "welcome_queued", note: "Consulta recibida desde la web; bienvenida preparada para el canal disponible." });
-    if (eventError) console.error("Lead event creation failed");
+    if (eventError) console.error("Lead event creation failed", { code: eventError.code, message: eventError.message });
     return jsonResponse({ success: true }, 200, cors);
   } catch (error) {
     console.error("Public lead function failed", error instanceof Error ? error.message : "Unknown error");

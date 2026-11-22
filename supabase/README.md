@@ -31,9 +31,9 @@ La aplicación sólo necesita **Project URL** y la clave pública **anon/publish
 
 ## Funciones Edge y secretos
 
-Este paquete incluye `submit-lead` y `public-property-images`. Son funciones anónimas intencionales, configuradas con `verify_jwt = false`: la primera valida Turnstile, limita envíos y crea el lead desde el servidor; la segunda firma temporalmente imágenes privadas de propiedades activas. No expongas la `service_role` en el navegador.
+Este paquete incluye `submit-lead` y `public-property-images`. Son funciones anónimas intencionales, configuradas con `verify_jwt = false`: la primera valida el origen, aplica un campo trampa y un límite de envíos, y crea el lead desde el servidor; la segunda firma temporalmente imágenes privadas de propiedades activas. No expongas la `service_role` en el navegador.
 
-Antes de publicar el nuevo frontend, aplicá el `schema.sql` actualizado y desplegá ambas funciones con la CLI. Configurá en los secretos de Supabase `TURNSTILE_SECRET_KEY`, `IP_HASH_SECRET` y `ALLOWED_ORIGINS`; el formato, comandos y pruebas están en [la guía de seguridad y publicación](../SECURITY-DEPLOYMENT.md). Para una instalación existente, hacé backup y coordiná el cambio porque al volver privado el bucket las imágenes públicas antiguas pueden dejar de verse hasta publicar el nuevo sitio.
+Antes de publicar, aplicá el `schema.sql` actualizado y la migración `migrations/202611220002_edge_function_service_role_minimum_access.sql`, que otorga al rol interno `service_role` sólo las operaciones que usan las funciones y no amplía permisos anónimos. Desplegá ambas funciones con la CLI. Configurá en los secretos de Supabase `IP_HASH_SECRET` y `ALLOWED_ORIGINS`; el formato, comandos y pruebas están en [la guía de seguridad y publicación](../SECURITY-DEPLOYMENT.md). Para una instalación existente, hacé backup y coordiná el cambio porque al volver privado el bucket las imágenes públicas antiguas pueden dejar de verse hasta publicar el nuevo sitio.
 
 
 ## Cronología del embudo

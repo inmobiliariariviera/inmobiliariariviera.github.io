@@ -26,9 +26,8 @@ En Settings → Secrets and variables → Actions → Variables, agregá:
 
 - Variable `VITE_SUPABASE_URL`: la URL del proyecto.
 - Variable `VITE_SUPABASE_ANON_KEY`: la clave pública anon/publishable.
-- Variable `VITE_TURNSTILE_SITE_KEY`: la Site Key pública de Cloudflare Turnstile.
 
-La clave anon y la Site Key de Turnstile quedan visibles en la aplicación compilada por diseño. La seguridad de datos depende de RLS. Nunca coloques `service_role` en una variable `VITE_*` ni en un secreto de build.
+La clave anon/publishable queda visible en la aplicación compilada por diseño. La seguridad de datos depende de RLS. Nunca coloques `service_role` en una variable `VITE_*` ni en un secreto de build.
 
 ## 4. Datos y operaciones
 
@@ -41,9 +40,9 @@ La clave anon y la Site Key de Turnstile quedan visibles en la aplicación compi
 
 ## 6. Protección del formulario, imágenes y despliegue
 
-Antes de actualizar un portal existente, hacé una copia de seguridad y coordiná el cambio: el SQL vuelve privado el bucket `property-images`, así que las imágenes del sitio anterior pueden dejar de cargar hasta publicar el nuevo frontend. Aplicá `supabase/schema.sql`, configurá Turnstile, desplegá las Edge Functions y luego publicá el frontend, en ese orden.
+Antes de actualizar un portal existente, hacé una copia de seguridad y coordiná el cambio: el SQL vuelve privado el bucket `property-images`, así que las imágenes del sitio anterior pueden dejar de cargar hasta publicar el nuevo frontend. Aplicá `supabase/schema.sql`, configurá los secretos del backend, desplegá las Edge Functions y luego publicá el frontend, en ese orden.
 
-Las consultas públicas pasan por `submit-lead`, que valida campos, desafío Turnstile, propiedad activa y rate limit en servidor. Las imágenes almacenadas se entregan como enlaces firmados temporales sólo para propiedades activas; las fotos de borradores quedan privadas. Configurá los secretos `TURNSTILE_SECRET_KEY`, `IP_HASH_SECRET` y `ALLOWED_ORIGINS` en Supabase; no compartas ni publiques claves secretas. La service-role se usa sólo dentro del entorno seguro de Edge Functions.
+Las consultas públicas pasan por `submit-lead`, que valida campos, origen permitido y propiedad activa, y aplica un campo trampa y un rate limit en servidor. Las imágenes almacenadas se entregan como enlaces firmados temporales sólo para propiedades activas; las fotos de borradores quedan privadas. Configurá los secretos `IP_HASH_SECRET` y `ALLOWED_ORIGINS` en Supabase; no compartas ni publiques claves secretas. La service-role se usa sólo dentro del entorno seguro de Edge Functions.
 
 Seguí [la guía operativa de seguridad y publicación](SECURITY-DEPLOYMENT.md) para los comandos de Supabase, el formato de orígenes permitidos, el checklist de prueba y las referencias de GitHub Actions. El workflow compila, audita dependencias, ejecuta `pnpm check` y `pnpm test`, y publica sólo si todo termina correctamente.
 
