@@ -2,7 +2,6 @@ import { Check, ChevronDown, Menu, Moon, Search, Sun, X } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent, MouseEvent } from "react";
-import { createWhatsAppUrl } from "@/lib/contact";
 import { normalizePropertyCategory, PROPERTY_CATEGORIES } from "@/lib/propertyCategories";
 
 export default function SiteHeader() {
@@ -151,11 +150,10 @@ export default function SiteHeader() {
       );
     };
     return (
-      <div className={`header-operation-menu ${expanded ? "is-open" : ""}`} key={operation}>
-        <Link href={`/?operacion=${operation}`} onClick={(event) => goToOperation(event, operation)} onMouseMove={updateGlow}>{label}</Link>
-        <button className="header-category-toggle" type="button" aria-label={`Ver tipos de propiedad para ${label.toLowerCase()}`} aria-haspopup="menu" aria-expanded={expanded} aria-controls={menuId} title="Ver tipos de propiedad" onClick={() => setOpenCategoryOperation((current) => current === operation ? null : operation)} onMouseMove={updateGlow}>
-          <ChevronDown size={13} aria-hidden="true" />
-        </button>
+      <div className={`header-operation-menu ${expanded ? "is-open" : ""}`} key={operation} onMouseEnter={() => setOpenCategoryOperation(operation)} onMouseLeave={() => setOpenCategoryOperation((current) => current === operation ? null : current)}>
+        <Link href={`/?operacion=${operation}`} onClick={(event) => goToOperation(event, operation)} onFocus={() => setOpenCategoryOperation(operation)} onMouseMove={updateGlow} aria-haspopup="menu" aria-expanded={expanded} aria-controls={menuId}>
+          <span>{label}</span><ChevronDown size={13} aria-hidden="true" />
+        </Link>
         <div className="header-category-submenu" id={menuId} role="menu" aria-label={`Tipos de propiedad para ${label.toLowerCase()}`}>
           <span className="header-category-subtitle">{label.toUpperCase()} · TIPO DE PROPIEDAD</span>
           {categoryOption("Todas", "Todos los tipos")}
@@ -180,7 +178,6 @@ export default function SiteHeader() {
           <a className="header-section-link" href="/?seccion=resenas" onClick={(event) => goToSection(event, "resenas")} onMouseMove={updateGlow}>Reseñas</a>
           <a className="header-section-link" href="/?seccion=preguntas" onClick={(event) => goToSection(event, "preguntas")} onMouseMove={updateGlow}>Preguntas</a>
           <a className="header-section-link" href="/?seccion=contacto" onClick={(event) => goToSection(event, "contacto")} onMouseMove={updateGlow}>Contacto</a>
-          <a className="header-sell-link" href={createWhatsAppUrl("Hola, quiero vender una propiedad.")} target="_blank" rel="noopener noreferrer" onClick={closeMenus} onMouseMove={updateGlow}>Vender</a>
         </nav>
 
         <div className="header-tools">

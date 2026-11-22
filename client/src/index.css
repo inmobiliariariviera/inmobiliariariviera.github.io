@@ -2501,3 +2501,14 @@ html[data-theme="dark"] .skeleton-copy span { background: linear-gradient(105deg
   .header-nav .header-sell-link { min-height: 44px; justify-content: center; margin-top: 5px; }
   .footer-section-links { justify-content: flex-start; gap: 10px 14px; }
 }
+
+/* Menús de operación: texto y flecha en un único control */
+.header-operation-menu > a { gap: 7px; }
+.header-operation-menu > a svg { flex: 0 0 auto; transition: transform .22s cubic-bezier(.2,.8,.2,1); }
+.header-operation-menu:hover > a svg, .header-operation-menu:focus-within > a svg, .header-operation-menu.is-open > a svg { transform: rotate(180deg); }
+.header-operation-menu:hover .header-category-submenu, .header-operation-menu:focus-within .header-category-submenu { display: grid; animation: nav-menu-in .18s ease-out both; }
+@media (max-width: 600px) {
+  .header-operation-menu { display: block; width: 100%; }
+  .header-operation-menu > a { width: 100%; justify-content: space-between; }
+  .header-operation-menu:hover .header-category-submenu, .header-operation-menu:focus-within .header-category-submenu { display: grid; }
+}
